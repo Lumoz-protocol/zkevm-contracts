@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.17;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IVerifierRollup.sol";
 import "./interfaces/IPolygonZkEVMGlobalExitRoot.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IPolygonZkEVMBridge.sol";
 import "./lib/EmergencyManager.sol";
 import "./interfaces/IPolygonZkEVMErrors.sol";
+import "./interfaces/ISlotAdapter.sol";
 
 /**
  * Contract responsible for managing the states and the updates of L2 network.
@@ -22,7 +23,7 @@ contract PolygonZkEVM is
     EmergencyManager,
     IPolygonZkEVMErrors
 {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    // using SafeERC20Upgradeable for IERC20Upgradeable;
 
     /**
      * @notice Struct which will be used to call sequenceBatches
@@ -144,8 +145,10 @@ contract PolygonZkEVM is
     // Max uint64
     uint256 internal constant _MAX_UINT_64 = type(uint64).max; // 0xFFFFFFFFFFFFFFFF
 
-    // MATIC token address
-    IERC20Upgradeable public immutable matic;
+    // // MATIC token address
+    // IERC20Upgradeable public immutable matic;
+
+    ISlotAdapter public slotAdapter;
 
     // Rollup verifier interface
     IVerifierRollup public immutable rollupVerifier;
@@ -369,7 +372,6 @@ contract PolygonZkEVM is
 
     /**
      * @param _globalExitRootManager Global exit root manager address
-     * @param _matic MATIC token address
      * @param _rollupVerifier Rollup verifier address
      * @param _bridgeAddress Bridge address
      * @param _chainID L2 chainID
@@ -377,14 +379,14 @@ contract PolygonZkEVM is
      */
     constructor(
         IPolygonZkEVMGlobalExitRoot _globalExitRootManager,
-        IERC20Upgradeable _matic,
+        // IERC20Upgradeable _matic,
         IVerifierRollup _rollupVerifier,
         IPolygonZkEVMBridge _bridgeAddress,
         uint64 _chainID,
         uint64 _forkID
     ) {
         globalExitRootManager = _globalExitRootManager;
-        matic = _matic;
+        // matic = _matic;
         rollupVerifier = _rollupVerifier;
         bridgeAddress = _bridgeAddress;
         chainID = _chainID;
@@ -609,11 +611,13 @@ contract PolygonZkEVM is
             lastForceBatchSequenced = currentLastForceBatchSequenced;
 
         // Pay collateral for every non-forced batch submitted
-        matic.safeTransferFrom(
-            msg.sender,
-            address(this),
-            batchFee * nonForcedBatchesSequenced
-        );
+        // matic.safeTransferFrom(
+        //     msg.sender,
+        //     address(this),
+        //     batchFee * nonForcedBatchesSequenced
+        // );
+
+        slotAdapter.distributeRewards(msg.sender, batchFee * nonForcedBatchesSequenced);
 
         // Consolidate pending state if possible
         _tryConsolidatePendingState();
@@ -818,12 +822,15 @@ contract PolygonZkEVM is
             revert InvalidProof();
         }
 
-        // Get MATIC reward
-        matic.safeTransfer(
-            msg.sender,
-            calculateRewardPerBatch() *
-                (finalNewBatch - currentLastVerifiedBatch)
-        );
+        // // Get MATIC reward
+        // matic.safeTransfer(
+        //     msg.sender,
+        //     calculateRewardPerBatch() *
+        //         (finalNewBatch - currentLastVerifiedBatch)
+        // );
+
+        slotAdapter.distributeRewards(msg.sender, calculateRewardPerBatch() * (finalNewBatch - currentLastVerifiedBatch));
+
     }
 
     /**
@@ -1030,7 +1037,7 @@ contract PolygonZkEVM is
             revert TransactionsLengthAboveMax();
         }
 
-        matic.safeTransferFrom(msg.sender, address(this), maticFee);
+        // matic.safeTransferFrom(msg.sender, address(this), maticFee);
 
         // Get globalExitRoot global exit root
         bytes32 lastGlobalExitRoot = globalExitRootManager
@@ -1162,6 +1169,10 @@ contract PolygonZkEVM is
     //////////////////
     // admin functions
     //////////////////
+
+    function setSlotAdapter(address _slotAdapter) public onlyAdmin {
+        slotAdapter = ISlotAdapter(_slotAdapter);
+    }
 
     /**
      * @notice Allow the admin to set a new trusted sequencer
@@ -1615,8 +1626,8 @@ contract PolygonZkEVM is
      * @notice Function to calculate the reward to verify a single batch
      */
     function calculateRewardPerBatch() public view returns (uint256) {
-        uint256 currentBalance = matic.balanceOf(address(this));
-
+        // uint256 currentBalance = matic.balanceOf(address(this));
+        uint256 currentBalance = 0; // todo
         // Total Sequenced Batches = forcedBatches to be sequenced (total forced Batches - sequenced Batches) + sequencedBatches
         // Total Batches to be verified = Total Sequenced Batches - verified Batches
         uint256 totalBatchesToVerify = ((lastForceBatch -

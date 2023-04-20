@@ -283,6 +283,12 @@ contract PolygonZkEVM is
         address indexed aggregator
     );
 
+    event VerifyAndRewardBatchesForUncle(
+        uint64 indexed numBatch,
+        bytes32 stateRoot,
+        address indexed aggregator
+    );
+
     /**
      * @dev Emitted when pending state is consolidated
      */
@@ -593,8 +599,8 @@ contract PolygonZkEVM is
             revert ForceBatchesOverflow();
         }
 
-        uint256 nonForcedBatchesSequenced = batchesNum -
-            (currentLastForceBatchSequenced - initLastForceBatchSequenced);
+        // uint256 nonForcedBatchesSequenced = batchesNum -
+        //     (currentLastForceBatchSequenced - initLastForceBatchSequenced);
 
         // Update sequencedBatches mapping
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
@@ -616,8 +622,6 @@ contract PolygonZkEVM is
         //     address(this),
         //     batchFee * nonForcedBatchesSequenced
         // );
-
-        slotAdapter.distributeRewards(msg.sender, batchFee * nonForcedBatchesSequenced);
 
         // Consolidate pending state if possible
         _tryConsolidatePendingState();
@@ -645,60 +649,74 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-        // Check if the trusted aggregator timeout expired,
-        // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
-        if (
-            sequencedBatches[finalNewBatch].sequencedTimestamp +
-                trustedAggregatorTimeout >
-            block.timestamp
-        ) {
-            revert TrustedAggregatorTimeoutNotExpired();
-        }
-
-        if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
-            revert ExceedMaxVerifyBatches();
-        }
-
-        _verifyAndRewardBatches(
-            pendingStateNum,
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            newStateRoot,
-            proof
-        );
-
-        // Update batch fees
-        _updateBatchFee(finalNewBatch);
-
-        if (pendingStateTimeout == 0) {
-            // Consolidate state
-            lastVerifiedBatch = finalNewBatch;
-            batchNumToStateRoot[finalNewBatch] = newStateRoot;
-
-            // Clean pending state if any
-            if (lastPendingState > 0) {
-                lastPendingState = 0;
-                lastPendingStateConsolidated = 0;
+        require(address(slotAdapter) != address(0), "SlotAdapter zero");
+       if (finalNewBatch == lastVerifiedBatch && batchNumToStateRoot[finalNewBatch] == newStateRoot) {
+            _verifyAndRewardBatchesForUncle(
+                pendingStateNum,
+                initNumBatch,
+                finalNewBatch,
+                newLocalExitRoot,
+                newStateRoot,
+                proof
+            );
+            
+            emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
+        } else {
+            // Check if the trusted aggregator timeout expired,
+            // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
+            if (
+                sequencedBatches[finalNewBatch].sequencedTimestamp +
+                    trustedAggregatorTimeout >
+                block.timestamp
+            ) {
+                revert TrustedAggregatorTimeoutNotExpired();
             }
 
-            // Interact with globalExitRootManager
-            globalExitRootManager.updateExitRoot(newLocalExitRoot);
-        } else {
-            // Consolidate pending state if possible
-            _tryConsolidatePendingState();
+            if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
+                revert ExceedMaxVerifyBatches();
+            }
 
-            // Update pending state
-            lastPendingState++;
-            pendingStateTransitions[lastPendingState] = PendingState({
-                timestamp: uint64(block.timestamp),
-                lastVerifiedBatch: finalNewBatch,
-                exitRoot: newLocalExitRoot,
-                stateRoot: newStateRoot
-            });
+            _verifyAndRewardBatches(
+                pendingStateNum,
+                initNumBatch,
+                finalNewBatch,
+                newLocalExitRoot,
+                newStateRoot,
+                proof
+            );
+
+            // Update batch fees
+            _updateBatchFee(finalNewBatch);
+
+            if (pendingStateTimeout == 0) {
+                // Consolidate state
+                lastVerifiedBatch = finalNewBatch;
+                batchNumToStateRoot[finalNewBatch] = newStateRoot;
+
+                // Clean pending state if any
+                if (lastPendingState > 0) {
+                    lastPendingState = 0;
+                    lastPendingStateConsolidated = 0;
+                }
+
+                // Interact with globalExitRootManager
+                globalExitRootManager.updateExitRoot(newLocalExitRoot);
+            } else {
+                // Consolidate pending state if possible
+                _tryConsolidatePendingState();
+
+                // Update pending state
+                lastPendingState++;
+                pendingStateTransitions[lastPendingState] = PendingState({
+                    timestamp: uint64(block.timestamp),
+                    lastVerifiedBatch: finalNewBatch,
+                    exitRoot: newLocalExitRoot,
+                    stateRoot: newStateRoot
+                });
+            }
+
+            emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
         }
-
-        emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
     }
 
     /**
@@ -718,33 +736,47 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external onlyTrustedAggregator {
-        _verifyAndRewardBatches(
-            pendingStateNum,
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            newStateRoot,
-            proof
-        );
+        require(address(slotAdapter) != address(0), "SlotAdapter zero");
+        if (finalNewBatch == lastVerifiedBatch && batchNumToStateRoot[finalNewBatch] == newStateRoot) {
+            _verifyAndRewardBatchesForUncle(
+                pendingStateNum,
+                initNumBatch,
+                finalNewBatch,
+                newLocalExitRoot,
+                newStateRoot,
+                proof
+            );
 
-        // Consolidate state
-        lastVerifiedBatch = finalNewBatch;
-        batchNumToStateRoot[finalNewBatch] = newStateRoot;
+            emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
+        } else {
+            _verifyAndRewardBatches(
+                pendingStateNum,
+                initNumBatch,
+                finalNewBatch,
+                newLocalExitRoot,
+                newStateRoot,
+                proof
+            );
 
-        // Clean pending state if any
-        if (lastPendingState > 0) {
-            lastPendingState = 0;
-            lastPendingStateConsolidated = 0;
+            // Consolidate state
+            lastVerifiedBatch = finalNewBatch;
+            batchNumToStateRoot[finalNewBatch] = newStateRoot;
+
+            // Clean pending state if any
+            if (lastPendingState > 0) {
+                lastPendingState = 0;
+                lastPendingStateConsolidated = 0;
+            }
+
+            // Interact with globalExitRootManager
+            globalExitRootManager.updateExitRoot(newLocalExitRoot);
+
+            emit VerifyBatchesTrustedAggregator(
+                finalNewBatch,
+                newStateRoot,
+                msg.sender
+            );
         }
-
-        // Interact with globalExitRootManager
-        globalExitRootManager.updateExitRoot(newLocalExitRoot);
-
-        emit VerifyBatchesTrustedAggregator(
-            finalNewBatch,
-            newStateRoot,
-            msg.sender
-        );
     }
 
     /**
@@ -831,6 +863,41 @@ contract PolygonZkEVM is
 
         slotAdapter.distributeRewards(msg.sender, calculateRewardPerBatch() * (finalNewBatch - currentLastVerifiedBatch));
 
+    }
+
+    function _verifyAndRewardBatchesForUncle(
+        uint64 pendingStateNum,
+        uint64 initNumBatch,
+        uint64 finalNewBatch,
+        bytes32 newLocalExitRoot,
+        bytes32 newStateRoot,
+        bytes calldata proof
+    ) internal {
+        // Use consolidated state
+        bytes32 oldStateRoot = batchNumToStateRoot[initNumBatch];
+
+        if (oldStateRoot == bytes32(0)) {
+            revert OldStateRootDoesNotExist();
+        }
+
+        // Get snark bytes
+        bytes memory snarkHashBytes = getInputSnarkBytes(
+            initNumBatch,
+            finalNewBatch,
+            newLocalExitRoot,
+            oldStateRoot,
+            newStateRoot
+        );
+
+        // Calulate the snark input
+        uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
+        // Verify proof
+        if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
+            revert InvalidProof();
+        }
+
+
+        slotAdapter.distributeRewards(msg.sender, 1);
     }
 
     /**
@@ -1171,6 +1238,7 @@ contract PolygonZkEVM is
     //////////////////
 
     function setSlotAdapter(address _slotAdapter) public onlyAdmin {
+        require(address(_slotAdapter) != address(0), "Set slotAdapter zero");
         slotAdapter = ISlotAdapter(_slotAdapter);
     }
 

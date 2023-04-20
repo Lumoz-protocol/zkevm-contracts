@@ -374,7 +374,6 @@ async function main() {
                     {
                         constructorArgs: [
                             polygonZkEVMGlobalExitRoot.address,
-                            maticTokenAddress,
                             verifierContract.address,
                             polygonZkEVMBridgeContract.address,
                             chainID,

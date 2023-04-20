@@ -123,7 +123,6 @@ async function main() {
     const PolygonZkEVMFactory = await ethers.getContractFactory('PolygonZkEVM');
     const polygonZkEVMContract = await PolygonZkEVMFactory.deploy(
         deployMainnet.polygonZkEVMGlobalExitRootAddress,
-        maticAddress,
         deployMainnet.fflonkVerifierAddress,
         deployMainnet.polygonZkEVMBridgeAddress,
         mainnetChainID,

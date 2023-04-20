@@ -27,7 +27,6 @@ describe('Polygon ZK-EVM snark stark input test', () => {
                 randomSigner.address,
                 randomSigner.address,
                 randomSigner.address,
-                randomSigner.address,
                 chainID,
                 0,
             ],

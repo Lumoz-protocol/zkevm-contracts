@@ -83,7 +83,6 @@ describe('Emergency mode test', () => {
             initializer: false,
             constructorArgs: [
                 polygonZkEVMGlobalExitRoot.address,
-                maticTokenContract.address,
                 verifierContract.address,
                 polygonZkEVMBridgeContract.address,
                 chainID,

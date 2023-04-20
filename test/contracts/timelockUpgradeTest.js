@@ -106,7 +106,6 @@ describe('Polygon ZK-EVM', () => {
             initializer: false,
             constructorArgs: [
                 polygonZkEVMGlobalExitRoot.address,
-                maticTokenContract.address,
                 verifierContract.address,
                 polygonZkEVMBridgeContract.address,
                 chainID,

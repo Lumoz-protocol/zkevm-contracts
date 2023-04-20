@@ -56,7 +56,8 @@
     "prettier-plugin-solidity": "^1.1.3",
     "solc-0.8": "npm:solc@0.8.17",
     "solidity-coverage": "^0.7.22",
-    "solidity-docgen": "^0.5.17"
+    "solidity-docgen": "^0.5.17",
+    "wasmcurves": "^0.2.0"
   },
   "scripts": {
     "saveDeployment:goerli": "mkdir -p deployments/goerli_$(date +%s) && cp -r deployment/deploy_*.json deployments/goerli_$(date +%s) && cp .openzeppelin/goerli.json deployments/goerli_$(date +%s) && cp deployment/genesis.json deployments/goerli_$(date +%s)",

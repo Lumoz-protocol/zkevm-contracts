@@ -12,14 +12,12 @@ import "../PolygonZkEVM.sol";
 contract PolygonZkEVMMock is PolygonZkEVM {
     /**
      * @param _globalExitRootManager Global exit root manager address
-     * @param _matic MATIC token address
      * @param _rollupVerifier Rollup verifier address
      * @param _bridgeAddress Bridge address
      * @param _chainID L2 chainID
      */
     constructor(
         IPolygonZkEVMGlobalExitRoot _globalExitRootManager,
-        IERC20Upgradeable _matic,
         IVerifierRollup _rollupVerifier,
         IPolygonZkEVMBridge _bridgeAddress,
         uint64 _chainID,
@@ -27,7 +25,6 @@ contract PolygonZkEVMMock is PolygonZkEVM {
     )
         PolygonZkEVM(
             _globalExitRootManager,
-            _matic,
             _rollupVerifier,
             _bridgeAddress,
             _chainID,
@@ -218,94 +215,99 @@ contract PolygonZkEVMMock is PolygonZkEVM {
         uint256[2][2] calldata proofB,
         uint256[2] calldata proofC
     ) public onlyOwner {
-        bytes32 oldStateRoot;
-        uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
-
-        // Use pending state if specified, otherwise use consolidated state
-        if (pendingStateNum != 0) {
-            // Check that pending state exist
-            // Already consolidated pending states can be used aswell
-            require(
-                pendingStateNum <= lastPendingState,
-                "PolygonZkEVM::verifyBatches: pendingStateNum must be less or equal than lastPendingState"
-            );
-
-            // Check choosen pending state
-            PendingState storage currentPendingState = pendingStateTransitions[
-                pendingStateNum
-            ];
-
-            // Get oldStateRoot from pending batch
-            oldStateRoot = currentPendingState.stateRoot;
-
-            // Check initNumBatch matches the pending state
-            require(
-                initNumBatch == currentPendingState.lastVerifiedBatch,
-                "PolygonZkEVM::verifyBatches: initNumBatch must match the pending state batch"
-            );
+        require(address(slotAdapter) != address(0), "SlotAdapter zero address");
+        if (finalNewBatch == lastVerifiedBatch && batchNumToStateRoot[finalNewBatch] == newStateRoot) {
+            emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
         } else {
-            // Use consolidated state
-            oldStateRoot = batchNumToStateRoot[initNumBatch];
+            bytes32 oldStateRoot;
+            uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
+
+            // Use pending state if specified, otherwise use consolidated state
+            if (pendingStateNum != 0) {
+                // Check that pending state exist
+                // Already consolidated pending states can be used aswell
+                require(
+                    pendingStateNum <= lastPendingState,
+                    "PolygonZkEVM::verifyBatches: pendingStateNum must be less or equal than lastPendingState"
+                );
+
+                // Check choosen pending state
+                PendingState storage currentPendingState = pendingStateTransitions[
+                    pendingStateNum
+                ];
+
+                // Get oldStateRoot from pending batch
+                oldStateRoot = currentPendingState.stateRoot;
+
+                // Check initNumBatch matches the pending state
+                require(
+                    initNumBatch == currentPendingState.lastVerifiedBatch,
+                    "PolygonZkEVM::verifyBatches: initNumBatch must match the pending state batch"
+                );
+            } else {
+                // Use consolidated state
+                oldStateRoot = batchNumToStateRoot[initNumBatch];
+                require(
+                    oldStateRoot != bytes32(0),
+                    "PolygonZkEVM::verifyBatches: initNumBatch state root does not exist"
+                );
+
+                // Check initNumBatch is inside the range
+                require(
+                    initNumBatch <= currentLastVerifiedBatch,
+                    "PolygonZkEVM::verifyBatches: initNumBatch must be less or equal than currentLastVerifiedBatch"
+                );
+            }
+
+            // Check final batch
             require(
-                oldStateRoot != bytes32(0),
-                "PolygonZkEVM::verifyBatches: initNumBatch state root does not exist"
+                finalNewBatch > currentLastVerifiedBatch,
+                "PolygonZkEVM::verifyBatches: finalNewBatch must be bigger than currentLastVerifiedBatch"
             );
 
-            // Check initNumBatch is inside the range
-            require(
-                initNumBatch <= currentLastVerifiedBatch,
-                "PolygonZkEVM::verifyBatches: initNumBatch must be less or equal than currentLastVerifiedBatch"
+            // Get snark bytes
+            bytes memory snarkHashBytes = getInputSnarkBytes(
+                initNumBatch,
+                finalNewBatch,
+                newLocalExitRoot,
+                oldStateRoot,
+                newStateRoot
+            );
+
+            // // Calulate the snark input
+            // uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
+
+            // // Verify proof
+            // require(
+            //     rollupVerifier.verifyProof(proofA, proofB, proofC, [inputSnark]),
+            //     "PolygonZkEVM::verifyBatches: INVALID_PROOF"
+            // );
+
+            // // Get MATIC reward
+            // matic.safeTransfer(
+            //     msg.sender,
+            //     calculateRewardPerBatch() *
+            //         (finalNewBatch - currentLastVerifiedBatch)
+            // );
+
+            // Consolidate state
+            lastVerifiedBatch = finalNewBatch;
+            batchNumToStateRoot[finalNewBatch] = newStateRoot;
+
+            // Clean pending state if any
+            if (lastPendingState > 0) {
+                lastPendingState = 0;
+                lastPendingStateConsolidated = 0;
+            }
+
+            // Interact with globalExitRootManager
+            globalExitRootManager.updateExitRoot(newLocalExitRoot);
+
+            emit VerifyBatchesTrustedAggregator(
+                finalNewBatch,
+                newStateRoot,
+                msg.sender
             );
         }
-
-        // Check final batch
-        require(
-            finalNewBatch > currentLastVerifiedBatch,
-            "PolygonZkEVM::verifyBatches: finalNewBatch must be bigger than currentLastVerifiedBatch"
-        );
-
-        // Get snark bytes
-        bytes memory snarkHashBytes = getInputSnarkBytes(
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            oldStateRoot,
-            newStateRoot
-        );
-
-        // // Calulate the snark input
-        // uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
-
-        // // Verify proof
-        // require(
-        //     rollupVerifier.verifyProof(proofA, proofB, proofC, [inputSnark]),
-        //     "PolygonZkEVM::verifyBatches: INVALID_PROOF"
-        // );
-
-        // // Get MATIC reward
-        // matic.safeTransfer(
-        //     msg.sender,
-        //     calculateRewardPerBatch() *
-        //         (finalNewBatch - currentLastVerifiedBatch)
-        // );
-
-        // Consolidate state
-        lastVerifiedBatch = finalNewBatch;
-        batchNumToStateRoot[finalNewBatch] = newStateRoot;
-
-        // Clean pending state if any
-        if (lastPendingState > 0) {
-            lastPendingState = 0;
-            lastPendingStateConsolidated = 0;
-        }
-
-        // Interact with globalExitRootManager
-        globalExitRootManager.updateExitRoot(newLocalExitRoot);
-
-        emit VerifyBatchesTrustedAggregator(
-            finalNewBatch,
-            newStateRoot,
-            msg.sender
-        );
     }
 }

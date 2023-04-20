@@ -84,7 +84,6 @@ describe('Polygon ZK-EVM TestnetV2', () => {
             initializer: false,
             constructorArgs: [
                 polygonZkEVMGlobalExitRoot.address,
-                maticTokenContract.address,
                 verifierContract.address,
                 polygonZkEVMBridgeContract.address,
                 chainID,

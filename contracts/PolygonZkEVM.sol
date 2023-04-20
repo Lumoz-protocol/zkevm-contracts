@@ -649,10 +649,13 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-        require(address(slotAdapter) != address(0), "SlotAdapter zero");
-       if (finalNewBatch == lastVerifiedBatch && batchNumToStateRoot[finalNewBatch] == newStateRoot) {
+        require(address(slotAdapter) != address(0), "SlotAdapter zero address");
+       uint64 _lastVerifiedBatch = getLastVerifiedBatch();
+       bytes32 _stateRoot = pendingStateTransitions[lastPendingState].stateRoot;
+       if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && finalNewBatch == lastVerifiedBatch) || 
+            (finalNewBatch == _lastVerifiedBatch && _stateRoot == newStateRoot)
+        ) {
             _verifyAndRewardBatchesForUncle(
-                pendingStateNum,
                 initNumBatch,
                 finalNewBatch,
                 newLocalExitRoot,
@@ -736,10 +739,12 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external onlyTrustedAggregator {
-        require(address(slotAdapter) != address(0), "SlotAdapter zero");
-        if (finalNewBatch == lastVerifiedBatch && batchNumToStateRoot[finalNewBatch] == newStateRoot) {
+        require(address(slotAdapter) != address(0), "SlotAdapter zero address");
+        PendingState memory _pendingStateTransition = pendingStateTransitions[pendingStateNum+1];
+        if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && lastVerifiedBatch == finalNewBatch) || 
+            (_pendingStateTransition.stateRoot == newStateRoot && finalNewBatch == _pendingStateTransition.lastVerifiedBatch)
+        ) {
             _verifyAndRewardBatchesForUncle(
-                pendingStateNum,
                 initNumBatch,
                 finalNewBatch,
                 newLocalExitRoot,
@@ -866,7 +871,6 @@ contract PolygonZkEVM is
     }
 
     function _verifyAndRewardBatchesForUncle(
-        uint64 pendingStateNum,
         uint64 initNumBatch,
         uint64 finalNewBatch,
         bytes32 newLocalExitRoot,
@@ -875,8 +879,8 @@ contract PolygonZkEVM is
     ) internal {
         // Use consolidated state
         bytes32 oldStateRoot = batchNumToStateRoot[initNumBatch];
-
-        if (oldStateRoot == bytes32(0)) {
+        bytes32 _pendingStateRoot = pendingStateTransitions[finalNewBatch].stateRoot;
+        if (oldStateRoot == bytes32(0) && _pendingStateRoot == bytes32(0)) {
             revert OldStateRootDoesNotExist();
         }
 
@@ -1238,7 +1242,7 @@ contract PolygonZkEVM is
     //////////////////
 
     function setSlotAdapter(address _slotAdapter) public onlyAdmin {
-        require(address(_slotAdapter) != address(0), "Set slotAdapter zero");
+        require(_slotAdapter != address(0), "Set slotAdapter zero address");
         slotAdapter = ISlotAdapter(_slotAdapter);
     }
 

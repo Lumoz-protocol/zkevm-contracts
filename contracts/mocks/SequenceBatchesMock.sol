@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.17;
+
 import "../lib/DepositContract.sol";
-import "hardhat/console.sol";
 
 /**
  * This contract will be used as a helper for PolygonZkEVM tests

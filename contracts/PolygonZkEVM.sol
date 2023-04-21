@@ -874,7 +874,7 @@ contract PolygonZkEVM is
         //         (finalNewBatch - currentLastVerifiedBatch)
         // );
         finalNewBatchs[finalNewBatch] += 1;
-        slotAdapter.distributeRewards(msg.sender, finalNewBatch - currentLastVerifiedBatch, finalNewBatchs[finalNewBatch]);
+        slotAdapter.distributeRewards(msg.sender, finalNewBatch - currentLastVerifiedBatch, 0, finalNewBatchs[finalNewBatch]);
 
     }
 
@@ -909,7 +909,7 @@ contract PolygonZkEVM is
         }
 
         finalNewBatchs[finalNewBatch] += 1;
-        slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, finalNewBatchs[finalNewBatch]);
+        slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, 0, finalNewBatchs[finalNewBatch]);
     }
 
     /**

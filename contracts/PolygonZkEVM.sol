@@ -145,6 +145,8 @@ contract PolygonZkEVM is
     // Max uint64
     uint256 internal constant _MAX_UINT_64 = type(uint64).max; // 0xFFFFFFFFFFFFFFFF
 
+    uint8 internal constant _MAX_PROVER_UNCLE = 10;
+
     // // MATIC token address
     // IERC20Upgradeable public immutable matic;
 
@@ -209,6 +211,9 @@ contract PolygonZkEVM is
     // State root mapping
     // BatchNum --> state root
     mapping(uint64 => bytes32) public batchNumToStateRoot;
+
+    // finalNewBatch --> uncle num
+    mapping(uint64 => uint8) public finalNewBatchs;
 
     // Trusted sequencer URL
     string public trustedSequencerURL;
@@ -649,7 +654,8 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-        require(address(slotAdapter) != address(0), "SlotAdapter zero address");
+       require(address(slotAdapter) != address(0), "SlotAdapter zero address");
+       require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
        uint64 _lastVerifiedBatch = getLastVerifiedBatch();
        bytes32 _stateRoot = pendingStateTransitions[lastPendingState].stateRoot;
        if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && finalNewBatch == lastVerifiedBatch) || 
@@ -740,6 +746,8 @@ contract PolygonZkEVM is
         bytes calldata proof
     ) external onlyTrustedAggregator {
         require(address(slotAdapter) != address(0), "SlotAdapter zero address");
+        require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
+
         PendingState memory _pendingStateTransition = pendingStateTransitions[pendingStateNum+1];
         if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && lastVerifiedBatch == finalNewBatch) || 
             (_pendingStateTransition.stateRoot == newStateRoot && finalNewBatch == _pendingStateTransition.lastVerifiedBatch)
@@ -865,8 +873,8 @@ contract PolygonZkEVM is
         //     calculateRewardPerBatch() *
         //         (finalNewBatch - currentLastVerifiedBatch)
         // );
-
-        slotAdapter.distributeRewards(msg.sender, calculateRewardPerBatch() * (finalNewBatch - currentLastVerifiedBatch));
+        finalNewBatchs[finalNewBatch] += 1;
+        slotAdapter.distributeRewards(msg.sender, finalNewBatch - currentLastVerifiedBatch, finalNewBatchs[finalNewBatch]);
 
     }
 
@@ -900,8 +908,8 @@ contract PolygonZkEVM is
             revert InvalidProof();
         }
 
-
-        slotAdapter.distributeRewards(msg.sender, 1);
+        finalNewBatchs[finalNewBatch] += 1;
+        slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, finalNewBatchs[finalNewBatch]);
     }
 
     /**

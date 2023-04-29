@@ -654,23 +654,23 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-       require(address(slotAdapter) != address(0), "SlotAdapter zero address");
-       require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
-       uint64 _lastVerifiedBatch = getLastVerifiedBatch();
-       bytes32 _stateRoot = pendingStateTransitions[lastPendingState].stateRoot;
-       if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && finalNewBatch == lastVerifiedBatch) || 
-            (finalNewBatch == _lastVerifiedBatch && _stateRoot == newStateRoot)
-        ) {
-            _verifyAndRewardBatchesForUncle(
-                initNumBatch,
-                finalNewBatch,
-                newLocalExitRoot,
-                newStateRoot,
-                proof
-            );
+       require(address(slotAdapter) != address(0), "0 address");
+    //    require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
+    //    uint64 _lastVerifiedBatch = getLastVerifiedBatch();
+    //    bytes32 _stateRoot = pendingStateTransitions[lastPendingState].stateRoot;
+    //    if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && finalNewBatch == lastVerifiedBatch) || 
+    //         (finalNewBatch == _lastVerifiedBatch && _stateRoot == newStateRoot)
+    //     ) {
+    //         _verifyAndRewardBatchesForUncle(
+    //             initNumBatch,
+    //             finalNewBatch,
+    //             newLocalExitRoot,
+    //             newStateRoot,
+    //             proof
+    //         );
             
-            emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
-        } else {
+    //         emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
+    //     } else {
             // Check if the trusted aggregator timeout expired,
             // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
             if (
@@ -725,7 +725,7 @@ contract PolygonZkEVM is
             }
 
             emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
-        }
+       // }
     }
 
     /**
@@ -745,23 +745,23 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external onlyTrustedAggregator {
-        require(address(slotAdapter) != address(0), "SlotAdapter zero address");
-        require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
+        require(address(slotAdapter) != address(0), "0 address");
+        // require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
 
-        PendingState memory _pendingStateTransition = pendingStateTransitions[pendingStateNum+1];
-        if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && lastVerifiedBatch == finalNewBatch) || 
-            (_pendingStateTransition.stateRoot == newStateRoot && finalNewBatch == _pendingStateTransition.lastVerifiedBatch)
-        ) {
-            _verifyAndRewardBatchesForUncle(
-                initNumBatch,
-                finalNewBatch,
-                newLocalExitRoot,
-                newStateRoot,
-                proof
-            );
+        // PendingState memory _pendingStateTransition = pendingStateTransitions[pendingStateNum+1];
+        // if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && lastVerifiedBatch == finalNewBatch) || 
+        //     (_pendingStateTransition.stateRoot == newStateRoot && finalNewBatch == _pendingStateTransition.lastVerifiedBatch)
+        // ) {
+        //     _verifyAndRewardBatchesForUncle(
+        //         initNumBatch,
+        //         finalNewBatch,
+        //         newLocalExitRoot,
+        //         newStateRoot,
+        //         proof
+        //     );
 
-            emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
-        } else {
+        //     emit VerifyAndRewardBatchesForUncle(finalNewBatch, newStateRoot, msg.sender);
+        // } else {
             _verifyAndRewardBatches(
                 pendingStateNum,
                 initNumBatch,
@@ -789,7 +789,7 @@ contract PolygonZkEVM is
                 newStateRoot,
                 msg.sender
             );
-        }
+        //}
     }
 
     /**
@@ -908,7 +908,7 @@ contract PolygonZkEVM is
         //     revert InvalidProof();
         // }
 
-        // finalNewBatchs[finalNewBatch] += 1;
+        finalNewBatchs[finalNewBatch] += 1;
         // slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, 0, finalNewBatchs[finalNewBatch]);
     }
 

@@ -886,30 +886,30 @@ contract PolygonZkEVM is
         bytes calldata proof
     ) internal {
         // Use consolidated state
-        bytes32 oldStateRoot = batchNumToStateRoot[initNumBatch];
-        bytes32 _pendingStateRoot = pendingStateTransitions[finalNewBatch].stateRoot;
-        if (oldStateRoot == bytes32(0) && _pendingStateRoot == bytes32(0)) {
-            revert OldStateRootDoesNotExist();
-        }
+        // bytes32 oldStateRoot = batchNumToStateRoot[initNumBatch];
+        // bytes32 _pendingStateRoot = pendingStateTransitions[finalNewBatch].stateRoot;
+        // if (oldStateRoot == bytes32(0) && _pendingStateRoot == bytes32(0)) {
+        //     revert OldStateRootDoesNotExist();
+        // }
 
-        // Get snark bytes
-        bytes memory snarkHashBytes = getInputSnarkBytes(
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            oldStateRoot,
-            newStateRoot
-        );
+        // // Get snark bytes
+        // bytes memory snarkHashBytes = getInputSnarkBytes(
+        //     initNumBatch,
+        //     finalNewBatch,
+        //     newLocalExitRoot,
+        //     oldStateRoot,
+        //     newStateRoot
+        // );
 
-        // Calulate the snark input
-        uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
-        // Verify proof
-        if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
-            revert InvalidProof();
-        }
+        // // Calulate the snark input
+        // uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
+        // // Verify proof
+        // if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
+        //     revert InvalidProof();
+        // }
 
-        finalNewBatchs[finalNewBatch] += 1;
-        slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, 0, finalNewBatchs[finalNewBatch]);
+        // finalNewBatchs[finalNewBatch] += 1;
+        // slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, 0, finalNewBatchs[finalNewBatch]);
     }
 
     /**

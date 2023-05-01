@@ -111,14 +111,15 @@ async function main() {
                     console.log('*** funding done ***');
                     console.log('--------------------------------------------');
 
-                    await (async () => {
-                        await spawn(`./build/depoly_zkrollup -c ./build/config.json --id ${regisResponse.rows[i].reg_id} --poe_addr ${outputJson.polygonZkEVMAddress} --exit_mana_addr ${outputJson.polygonZkEVMGlobalExitRootAddress} --gen_blocknumber ${outputJson.deploymentBlockNumber} --sequencer ${sequencer.address}  --aggregator ${aggregator.address} --bridge_addr ${outputJson.polygonZkEVMBridgeAddress} --l2bridge_addrs ${bridgeAddrL2}`);
-                    })();
+
+                    const depoly_zkrollup = path.join(__dirname, 'build/depoly_zkrollup');
+                    const depoly_zkrollup_config = path.join(__dirname, 'build/config.json');
+                    await spawn(`${depoly_zkrollup} -c ${depoly_zkrollup_config} --id ${regisResponse.rows[i].reg_id} --poe_addr ${outputJson.polygonZkEVMAddress} --exit_mana_addr ${outputJson.polygonZkEVMGlobalExitRootAddress} --gen_blocknumber ${outputJson.deploymentBlockNumber} --sequencer ${sequencer.address}  --aggregator ${aggregator.address} --bridge_addr ${outputJson.polygonZkEVMBridgeAddress} --l2bridge_addrs ${bridgeAddrL2}`);
 
                     // TODO: update status in registration table when child process normally exits
                     await pgClient.query(
-                        'update registration set status = 4, '
-                        + `where id = '${regisResponse.rows[i].id} `,
+                        'update registration set status = 4 '
+                        + `where id = ${regisResponse.rows[i].id} `,
                     );
                 }
             }

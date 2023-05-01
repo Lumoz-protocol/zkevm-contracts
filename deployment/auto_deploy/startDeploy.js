@@ -37,11 +37,6 @@ async function main() {
                         continue;
                     }
 
-                    await pgClient.query(
-                        'update request_record set zkrollup_contract_status = 1 '
-                        + `where transaction_hash = '${regisResponse.rows[i].transaction_hash}'`,
-                    );
-
                     const regisDataDir = path.join(__dirname, './', `reg_id_${regisResponse.rows[i].reg_id}`);
                     if (!fs.existsSync(regisDataDir)) {
                         fs.mkdirSync(regisDataDir);
@@ -72,9 +67,8 @@ async function main() {
                     fs.writeFileSync(paramsDir, JSON.stringify(deployParams, null, 1));
 
                     hre.changeNetwork('hardhat');
-                    // start deploy
                     await pgClient.query(
-                        'update request_record set zkrollup_contract_status = 1, '
+                        'update request_record set zkrollup_contract_status = 1 '
                         + `where transaction_hash = '${regisResponse.rows[i].transaction_hash}'`,
                     );
                     console.log('--------------------------------------------');
@@ -90,7 +84,7 @@ async function main() {
                     console.log('*** createGenesis done ***');
                     console.log('--------------------------------------------');
 
-                    hre.changeNetwork('opside');
+                    hre.changeNetwork('localhost');
                     const funder = new ethers.Wallet(process.env.FUNDER_PRIVKEY);
                     console.log('*** start deploy zkEVM deployer ***');
                     const currProvider = ethers.provider;

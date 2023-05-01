@@ -3,24 +3,14 @@
 const { expect } = require('chai');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { argv } = require('yargs');
 
-const DEFAULT_MNEMONIC = 'test test test test test test test test test test test junk';
-process.env.HARDHAT_NETWORK = 'hardhat';
-process.env.MNEMONIC = argv.test ? DEFAULT_MNEMONIC : process.env.MNEMONIC;
 const { ethers, upgrades } = require('hardhat');
 const {
     MemDB, ZkEVMDB, getPoseidon, smtUtils,
 } = require('@0xpolygonhermez/zkevm-commonjs');
 
 const { deployPolygonZkEVMDeployer, create2Deployment } = require('./helpers/deployment-helpers');
-
-const deployParametersPath = argv.input ? argv.input : './deploy_parameters.json';
-const deployParameters = require(deployParametersPath);
-
-const outPath = argv.out ? argv.out : './genesis.json';
-const pathOutputJson = path.join(__dirname, outPath);
 
 /*
  * bytes32 internal constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
@@ -29,7 +19,7 @@ const pathOutputJson = path.join(__dirname, outPath);
 const _ADMIN_SLOT = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
 const _IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 
-async function main() {
+const createGenesis = async (regisDataDir, deployParameters) => {
     // Constant variables
     const attemptsDeployProxy = 20;
     const networkIDL2 = 1;
@@ -76,7 +66,7 @@ async function main() {
     const dataCallAdmin = proxyAdminFactory.interface.encodeFunctionData('transferOwnership', [deployer.address]);
     const [proxyAdminAddress] = await create2Deployment(zkEVMDeployerContract, salt, deployTransactionAdmin, dataCallAdmin, deployer);
 
-    // Deploy implementation PolygonZkEVMBridg
+    // Deploy implementation PolygonZkEVMBridge
     const polygonZkEVMBridgeFactory = await ethers.getContractFactory('PolygonZkEVMBridge', deployer);
     const deployTransactionBridge = (polygonZkEVMBridgeFactory.getDeployTransaction()).data;
     // Mandatory to override the gasLimit since the estimation with create are mess up D:
@@ -317,16 +307,12 @@ async function main() {
         defaultChainId,
     );
 
+    const pathOutputJson = path.join(regisDataDir, './genesis.json');
     fs.writeFileSync(pathOutputJson, JSON.stringify({
         root: smtUtils.h4toString(zkEVMDB.stateRoot),
         genesis,
     }, null, 1));
-}
-
-main().catch((e) => {
-    console.error(e);
-    process.exit(1);
-});
+};
 
 async function getAddressInfo(address) {
     const nonce = await ethers.provider.getTransactionCount(address);
@@ -351,3 +337,7 @@ async function getAddressInfo(address) {
 
     return { nonce, bytecode, storage };
 }
+
+module.exports = {
+    createGenesis,
+};

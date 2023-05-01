@@ -7,15 +7,12 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const { deployPolygonZkEVMDeployer } = require('./helpers/deployment-helpers');
 
-const pathDeployParameters = path.join(__dirname, './deploy_parameters.json');
-const deployParameters = require('./deploy_parameters.json');
-
-async function main() {
+const deployDeployer = async (regisDataDir, deployParameters) => {
     // Load provider
-    let currentProvider = ethers.provider;
+    const currentProvider = ethers.provider;
     if (deployParameters.multiplierGas || deployParameters.maxFeePerGas) {
         if (process.env.HARDHAT_NETWORK !== 'hardhat') {
-            currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
+            // currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
             if (deployParameters.maxPriorityFeePerGas && deployParameters.maxFeePerGas) {
                 console.log(`Hardcoded gas used: MaxPriority${deployParameters.maxPriorityFeePerGas} gwei, MaxFee${deployParameters.maxFeePerGas} gwei`);
                 const FEE_DATA = {
@@ -66,11 +63,11 @@ async function main() {
         console.log('polygonZkEVMDeployer deployed on: ', zkEVMDeployerContract.address);
     }
 
+    const pathDeployParameters = path.join(regisDataDir, './deploy_parameters.json');
     deployParameters.zkEVMDeployerAddress = zkEVMDeployerContract.address;
     fs.writeFileSync(pathDeployParameters, JSON.stringify(deployParameters, null, 1));
-}
+};
 
-main().catch((e) => {
-    console.error(e);
-    process.exit(1);
-});
+module.exports = {
+    deployDeployer,
+};

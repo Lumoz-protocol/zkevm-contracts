@@ -4,19 +4,15 @@ const { expect } = require('chai');
 const { ethers, upgrades } = require('hardhat');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-
 const { create2Deployment } = require('./helpers/deployment-helpers');
-
-const pathOutputJson = path.join(__dirname, './deploy_output.json');
-const pathOngoingDeploymentJson = path.join(__dirname, './deploy_ongoing.json');
-
-const deployParameters = require('./deploy_parameters.json');
-const genesis = require('./genesis.json');
 
 const pathOZUpgradability = path.join(__dirname, `../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
 
-async function main() {
+const deployContracts = async (regisDataDir, deployParameters) => {
+    const genesis = JSON.parse(fs.readFileSync(path.join(regisDataDir, './genesis.json')).toString());
+    const pathOutputJson = path.join(regisDataDir, './deploy_output.json');
+    const pathOngoingDeploymentJson = path.join(regisDataDir, './deploy_ongoing.json');
+
     // Check that there's no previous OZ deployment
     if (fs.existsSync(pathOZUpgradability)) {
         throw new Error(`There's upgradability information from previous deployments, it's mandatory to erase them before start a new one, path: ${pathOZUpgradability}`);
@@ -53,7 +49,6 @@ async function main() {
         'minDelayTimelock',
         'salt',
         'zkEVMDeployerAddress',
-        'maticTokenAddress',
     ];
 
     for (const parameterName of mandatoryDeploymentParameters) {
@@ -79,14 +74,13 @@ async function main() {
         minDelayTimelock,
         salt,
         zkEVMDeployerAddress,
-        maticTokenAddress,
     } = deployParameters;
 
     // Load provider
-    let currentProvider = ethers.provider;
+    const currentProvider = ethers.provider;
     if (deployParameters.multiplierGas || deployParameters.maxFeePerGas) {
         if (process.env.HARDHAT_NETWORK !== 'hardhat') {
-            currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
+            // currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
             if (deployParameters.maxPriorityFeePerGas && deployParameters.maxFeePerGas) {
                 console.log(`Hardcoded gas used: MaxPriority${deployParameters.maxPriorityFeePerGas} gwei, MaxFee${deployParameters.maxFeePerGas} gwei`);
                 const FEE_DATA = {
@@ -333,7 +327,6 @@ async function main() {
     console.log('#######################');
     console.log('deployer:', deployer.address);
     console.log('PolygonZkEVMGlobalExitRootAddress:', polygonZkEVMGlobalExitRoot.address);
-    console.log('maticTokenAddress:', maticTokenAddress);
     console.log('verifierAddress:', verifierContract.address);
     console.log('polygonZkEVMBridgeContract:', polygonZkEVMBridgeContract.address);
 
@@ -436,7 +429,6 @@ async function main() {
     console.log('#####    Checks  PolygonZkEVM  #####');
     console.log('#######################');
     console.log('PolygonZkEVMGlobalExitRootAddress:', await polygonZkEVMContract.globalExitRootManager());
-    console.log('maticTokenAddress:', await polygonZkEVMContract.matic());
     console.log('verifierAddress:', await polygonZkEVMContract.rollupVerifier());
     console.log('polygonZkEVMBridgeContract:', await polygonZkEVMContract.bridgeAddress());
 
@@ -496,8 +488,8 @@ async function main() {
             'Polygon timelockContract deployed to:',
             timelockContract.address,
         );
-
         // Transfer ownership of the proxyAdmin to timelock
+        // TODO: wrong caller
         await upgrades.admin.transferProxyAdminOwnership(timelockContract.address);
     }
 
@@ -511,7 +503,6 @@ async function main() {
         polygonZkEVMAddress: polygonZkEVMContract.address,
         polygonZkEVMBridgeAddress: polygonZkEVMBridgeContract.address,
         polygonZkEVMGlobalExitRootAddress: polygonZkEVMGlobalExitRoot.address,
-        maticTokenAddress,
         verifierAddress: verifierContract.address,
         zkEVMDeployerContract: zkEVMDeployerContract.address,
         deployerAddress: deployer.address,
@@ -533,9 +524,9 @@ async function main() {
 
     // Remove ongoing deployment
     fs.unlinkSync(pathOngoingDeploymentJson);
-}
+    return outputJson;
+};
 
-main().catch((e) => {
-    console.error(e);
-    process.exit(1);
-});
+module.exports = {
+    deployContracts,
+};

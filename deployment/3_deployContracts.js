@@ -490,7 +490,8 @@ const deployContracts = async (regisDataDir, deployParameters) => {
         );
         // Transfer ownership of the proxyAdmin to timelock
         // TODO: wrong caller
-        await upgrades.admin.transferProxyAdminOwnership(timelockContract.address);
+        // await upgrades.admin.transferProxyAdminOwnership(timelockContract.address);
+        await (await upgrades.admin.getInstance()).connect(deployer).transferOwnership(timelockContract.address);
     }
 
     console.log('\n#######################');

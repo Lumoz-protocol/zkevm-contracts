@@ -5,6 +5,7 @@ require('solidity-coverage');
 require('@nomiclabs/hardhat-etherscan');
 require('@openzeppelin/hardhat-upgrades');
 require('hardhat-dependency-compiler');
+require('hardhat-contract-sizer');
 
 const DEFAULT_MNEMONIC = 'test test test test test test test test test test test junk';
 
@@ -24,6 +25,12 @@ module.exports = {
       '@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol'
     ]//,
     //keep: true
+  },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    // strict: true,
   },
   solidity: {
     compilers: [

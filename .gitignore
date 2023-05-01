@@ -19,3 +19,6 @@ upgrade_parameters.json
 docker/gethData/
 *.ignore/
 deployment/auto_deploy/reg_id_*
+deployment/auto_deploy/config*
+deployment/auto_deploy/*toml
+deployment/auto_deploy/*yml

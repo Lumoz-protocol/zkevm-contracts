@@ -50,7 +50,7 @@ async function main() {
                     const paramsDir = path.join(regisDataDir, './deploy_parameters.json');
                     const deployParams = JSON.parse(fs.readFileSync(paramsDir).toString());
                     deployParams.chainID = regisResponse.rows[i].chain_id;
-                    deployParams.trustedSequencerURL = requestRecordResp.rows[0].network_url;
+                    deployParams.trustedSequencerURL = 'http://127.0.0.1:6060';
 
                     deployParams.admin = deployer.address;
                     deployParams.zkEVMOwner = deployer.address;
@@ -84,11 +84,11 @@ async function main() {
                     console.log('*** createGenesis done ***');
                     console.log('--------------------------------------------');
 
-                    hre.changeNetwork('localhost');
+                    // hre.changeNetwork('localhost');
                     const funder = new ethers.Wallet(process.env.FUNDER_PRIVKEY);
                     console.log('*** start deploy zkEVM deployer ***');
                     const currProvider = ethers.provider;
-                    console.log('fund deployer...');
+                    console.log('fund deployer...',  await currProvider.getNetwork());
                     await fundWallet(funder, deployer, currProvider);
                     console.log('deploy contracts...');
                     await deployDeployer(regisDataDir, deployParams);

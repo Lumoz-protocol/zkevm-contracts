@@ -143,6 +143,7 @@ module.exports = {
         },
         opside: {
             url: 'https://testnet-us-http-geth.opside.network',
+            chainId: 51178,
         },
     },
     gasReporter: {

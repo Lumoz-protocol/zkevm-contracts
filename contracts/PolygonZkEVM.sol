@@ -145,7 +145,7 @@ contract PolygonZkEVM is
     // Max uint64
     uint256 internal constant _MAX_UINT_64 = type(uint64).max; // 0xFFFFFFFFFFFFFFFF
 
-    uint8 internal constant _MAX_PROVER_UNCLE = 10;
+    uint8 internal constant _PROOF_COMMIT_NUM = 10;
 
     // // MATIC token address
     // IERC20Upgradeable public immutable matic;
@@ -212,8 +212,13 @@ contract PolygonZkEVM is
     // BatchNum --> state root
     mapping(uint64 => bytes32) public batchNumToStateRoot;
 
-    // finalNewBatch --> uncle num
-    mapping(uint64 => uint8) public finalNewBatchs;
+    // blocknumber --> true
+    mapping(uint => bool) public blockCommitBatchs;
+
+    // finalNewBatch --> proofHash
+    mapping(address => bytes32) public proverCommitProofHash;
+    // proofHash -> address list
+    mapping(bytes32 => address[]) public proofHash;
 
     // Trusted sequencer URL
     string public trustedSequencerURL;
@@ -381,6 +386,8 @@ contract PolygonZkEVM is
      */
     event UpdateZkEVMVersion(uint64 numBatch, uint64 forkID, string version);
 
+    event SubmitProofHash(address _prover, uint64 initNumBatch, uint64 finalNewBatch, bytes32 _proofHash);
+
     /**
      * @param _globalExitRootManager Global exit root manager address
      * @param _rollupVerifier Rollup verifier address
@@ -498,6 +505,8 @@ contract PolygonZkEVM is
         BatchData[] calldata batches,
         address l2Coinbase
     ) external ifNotEmergencyState onlyTrustedSequencer {
+        require(!blockCommitBatchs[block.number], "Submitted");
+
         uint256 batchesNum = batches.length;
         if (batchesNum == 0) {
             revert SequenceZeroBatches();
@@ -634,7 +643,39 @@ contract PolygonZkEVM is
         // Update global exit root if there are new deposits
         bridgeAddress.updateGlobalExitRoot();
 
+        blockCommitBatchs[block.number] = true;
+        // calc slot reward
+        slotAdapter.calcSlotRewatd(currentBatchSequenced);
+
         emit SequenceBatches(currentBatchSequenced);
+    }
+
+    function submitProofHash(uint64 initNumBatch, uint64 finalNewBatch, bytes32 _proofHash) external ifNotEmergencyState {
+        require(proverCommitProofHash[msg.sender] == bytes32(0), "submitted");
+        if (
+            sequencedBatches[finalNewBatch].sequencedTimestamp +
+                trustedAggregatorTimeout >
+            block.timestamp
+        ) {
+            revert TrustedAggregatorTimeoutNotExpired();
+        }
+
+        if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
+            revert ExceedMaxVerifyBatches();
+        }
+        // 验证是否有质押 
+        /*
+            require(balanceOF(msg.sender) > 100000 000000000000000000, '')
+        */
+        //
+        /*
+            [finalNewBatch][msg.sender] = hash
+        */
+
+        proverCommitProofHash[msg.sender] = _proofHash;
+        proofHash[_proofHash].push(msg.sender);
+
+        emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
     }
 
     /**
@@ -654,8 +695,8 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-       require(address(slotAdapter) != address(0), "0 address");
-    //    require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
+        require(address(slotAdapter) != address(0), "0 address");
+        require(proverCommitProofHash[msg.sender] != bytes32(0), "submitted");
     //    uint64 _lastVerifiedBatch = getLastVerifiedBatch();
     //    bytes32 _stateRoot = pendingStateTransitions[lastPendingState].stateRoot;
     //    if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && finalNewBatch == lastVerifiedBatch) || 
@@ -746,7 +787,6 @@ contract PolygonZkEVM is
         bytes calldata proof
     ) external onlyTrustedAggregator {
         require(address(slotAdapter) != address(0), "0 address");
-        // require(finalNewBatchs[finalNewBatch] <= _MAX_PROVER_UNCLE, "Exceeded uncle");
 
         // PendingState memory _pendingStateTransition = pendingStateTransitions[pendingStateNum+1];
         // if ((batchNumToStateRoot[finalNewBatch] == newStateRoot && lastVerifiedBatch == finalNewBatch) || 
@@ -873,9 +913,12 @@ contract PolygonZkEVM is
         //     calculateRewardPerBatch() *
         //         (finalNewBatch - currentLastVerifiedBatch)
         // );
-        finalNewBatchs[finalNewBatch] += 1;
-        slotAdapter.distributeRewards(msg.sender, finalNewBatch - currentLastVerifiedBatch, 0, finalNewBatchs[finalNewBatch]);
 
+        bytes32 proofhash = proverCommitProofHash[msg.sender];
+        address[] memory provers = proofHash[proofhash];
+        for(uint8 i = 1; i <= provers.length; i++ ) {
+            slotAdapter.distributeRewards(msg.sender, finalNewBatch, i);
+        }
     }
 
     function _verifyAndRewardBatchesForUncle(
@@ -908,7 +951,6 @@ contract PolygonZkEVM is
         //     revert InvalidProof();
         // }
 
-        finalNewBatchs[finalNewBatch] += 1;
         // slotAdapter.distributeRewards(msg.sender, finalNewBatch - initNumBatch, 0, finalNewBatchs[finalNewBatch]);
     }
 

@@ -1,0 +1,27 @@
+{
+    "node_docker_file": "/Users/marius/work/opside/opside-deploy-zkrollup/cmd/ansible/playbook.yaml",
+    "bridge_docker_file": "/Users/marius/work/opside/opside-deploy-zkrollup/cmd/ansible/playbook.yaml",
+    "target_image_path": "/Users/marius/work/opside/opside-deploy-zkrollup/cmd/a",
+    "playbook_file": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook.yaml",
+    "playbook": {
+       "playbook_image": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_docker_image.yaml",
+        "playbook_zkevm_config": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_zkevm_config.yaml",
+        "playbook_run_db": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_db.yaml",
+        "playbook_run_prover": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_prover.yaml",
+        "playbook_run_zksync": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_zksync.yaml",
+        "playbook_run_node": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_node.yaml",
+        "playbook_run_broadcast": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_broadcast.yaml",
+        "playbook_run_bridge": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_bridge.yaml",
+        "playbook_run_explorer_l2": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy/build/ansible/playbook_run_explorer_l2.yaml"
+    },
+    "zkevm_config_root_path": "/Users/marius/work/opside/zkevm-contracts/deployment/auto_deploy",
+    "target_zkevm_path": "/Users/marius/work/opside/opside-deploy-zkrollup/cmd/a/a",
+    "test_env": true,
+    "db": {
+        "host": "192.168.213.235",        
+        "user": "node",
+        "password": "123456",
+        "dbname": "state_db",
+        "port": 5432
+    }
+}

@@ -1,0 +1,33 @@
+- name: Check docker installed
+  command: echo "docker -v"
+  register: result
+  ignore_errors: True
+
+- name: 创建文件夹
+  shell: echo "mkdir"
+  when: result is success
+
+- name: 拷贝node镜像到服务器
+  copy: src={{ path }} dest={{ targetImagePath }}
+  when: result is success
+  register: result_copy_docker
+  ignore_errors: True
+
+- name: 加载node镜像
+  shell: echo "docker load < {{ targetImageFile }}"
+  when: result_copy_docker is success
+
+- name: 拷贝部署的压缩包到服务
+  copy: src={{ zkevmFile }} dest={{ tragerZkevmFile }}
+  when: result is success
+  with_items: 
+    - {src: {{  }},dest: "{{ tragerZkevmFile }}"}
+    - {src: {{  }},dest: "{{ tragerZkevmFile }}"}
+
+# - name: 解压压缩包
+#   shell: echo "tar"
+#   when: result is success
+
+# - name: 执行docker
+#   shell: echo "run"
+#   when: result is success

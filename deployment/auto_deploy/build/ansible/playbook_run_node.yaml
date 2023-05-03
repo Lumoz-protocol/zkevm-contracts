@@ -1,0 +1,18 @@
+- hosts: "{{ host }}"
+  remote_user: "{{ user }}"
+  gather_facts: True
+  tasks:
+    - name: zkevm-eth-tx-manager
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-eth-tx-manager"
+
+    - name: zkevm-sequencer
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-sequencer"
+
+    - name: zkevm-l2gaspricer
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-l2gaspricer"
+
+    - name: zkevm-aggregator
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-aggregator"
+
+    - name: zkevm-json-rpc
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-json-rpc"

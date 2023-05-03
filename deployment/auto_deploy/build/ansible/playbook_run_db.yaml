@@ -1,0 +1,15 @@
+- hosts: "{{ host }}"
+  remote_user: "{{ user }}"
+  gather_facts: True
+  tasks:
+    - name: zkevm-state-db
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-state-db"
+    
+    - name: zkevm-pool-db
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-pool-db"
+    
+    - name: zkevm-explorer-l2-db
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-explorer-l2-db"
+    
+    - name: zkevm-bridge-db
+      shell: echo "chdir={{ tragerZkevmPath }} docker-compose -f docker-compose.yml up -d zkevm-bridge-db"

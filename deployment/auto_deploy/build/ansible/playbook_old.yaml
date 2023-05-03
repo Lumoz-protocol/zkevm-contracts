@@ -1,0 +1,106 @@
+- hosts: "{{ host }}"
+  remote_user: "{{ user }}"
+  gather_facts: True
+  tasks:
+    - name: Check docker installed
+      command: echo "docker -v"
+      register: result
+      ignore_errors: True
+
+    - name: 创建文件夹
+      shell: mkdir -p {{ targetImagePath }}
+      when: result is success
+      register: mkdir
+      ignore_errors: True
+
+    - name: 拷贝birdge镜像到服务器
+      copy: src={{ birdgeFile }} dest={{ targetImagePath }}
+      when: mkdir is success
+      register: result_copy_birdge_docker
+      ignore_errors: True
+
+    - name: 加载birdge镜像
+      shell: echo "docker load < {{ birdgeImageFile }}"
+      when: result_copy_birdge_docker is success
+      register: load_birdge_docker
+      ignore_errors: True
+
+    - name: 拷贝node镜像到服务器
+      copy: src={{ path }} dest={{ targetImagePath }}
+      when: mkdir is success
+      register: result_copy_docker
+      ignore_errors: True
+
+    - name: 加载node镜像
+      shell: echo "docker load < {{ targetImageFile }}"
+      when: result_copy_docker is success
+      register: load_docker
+      ignore_errors: True
+  
+    - name: 创建目录
+      shell: mkdir -p {{ tragerZkevmPath }}
+      when: load_docker is success
+      register: mkdir_zkevm
+      ignore_errors: True
+
+    - name: 拷贝部署的配置文件
+      copy: src="{{ item.src }}" dest="{{ item.dest }}"
+      when: mkdir_zkevm is success
+      with_items: 
+        - {src: "{{ prover_config }}",dest: "{{ tragerZkevmPath }}"}
+        - {src: "{{ node_config }}",dest: "{{ tragerZkevmPath }}"}
+        - {src: "{{ sequencer }}",dest: "{{ tragerZkevmPath }}"}
+        - {src: "{{ aggregator }}",dest: "{{ tragerZkevmPath }}"}
+        - {src: "{{ genesis }}",dest: "{{ tragerZkevmPath }}"}
+        - {src: "{{ docker_compose }}",dest: "{{ tragerZkevmPath }}"}
+
+    - name: zkevm-state-db
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-state-db"
+    
+    - name: zkevm-pool-db
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-pool-db"
+    
+    - name: sleep-1
+      tags: sleep1
+      wait_for:
+        delay: 1
+        timeout: 0
+
+    - name: zkevm-prover
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-prover"
+
+    - name: zkevm-approve
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-approve"
+   
+    - name: sleep-3
+      tags: sleep3
+      wait_for:
+        delay: 3
+        timeout: 0
+
+    - name: zkevm-sync
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-sync"
+   
+    - name: sleep-2
+      tags: sleep2
+      wait_for:
+        delay: 2
+        timeout: 0
+  
+    - name: zkevm-eth-tx-manager
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-eth-tx-manager"
+
+    - name: zkevm-sequencer
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-sequencer"
+
+    - name: zkevm-l2gaspricer
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-l2gaspricer"
+
+    - name: zkevm-aggregator
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-aggregator"
+
+    - name: zkevm-json-rpc
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-json-rpc"
+
+    - name: zkevm-broadcast
+      shell: echo "docker-compose -f docker-compose.yml up -d zkevm-broadcast"

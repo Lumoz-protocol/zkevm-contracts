@@ -51,6 +51,7 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     await ethers.provider.send('hardhat_impersonateAccount', [initialZkEVMDeployerOwner]);
     await ethers.provider.send('hardhat_setBalance', [initialZkEVMDeployerOwner, '0xffffffffffffffff']); // 18 ethers aprox
     const deployer = await ethers.getSigner(initialZkEVMDeployerOwner);
+    console.log(deployer.na);
 
     // Deploy PolygonZkEVMDeployer if is not deployed already
     const [zkEVMDeployerContract, keylessDeployer] = await deployPolygonZkEVMDeployer(initialZkEVMDeployerOwner, deployer);
@@ -63,6 +64,7 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     // Deploy proxy admin:
     const proxyAdminFactory = await ethers.getContractFactory('ProxyAdmin', deployer);
     const deployTransactionAdmin = (proxyAdminFactory.getDeployTransaction()).data;
+    console.log('deployer.address: ', deployer.address);
     const dataCallAdmin = proxyAdminFactory.interface.encodeFunctionData('transferOwnership', [deployer.address]);
     const [proxyAdminAddress] = await create2Deployment(zkEVMDeployerContract, salt, deployTransactionAdmin, dataCallAdmin, deployer);
 
@@ -108,8 +110,11 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     /*
      *Deployment Global exit root manager
      */
+    
     const PolygonZkEVMGlobalExitRootL2Factory = await ethers.getContractFactory('PolygonZkEVMGlobalExitRootL2', deployer);
+    console.log('PolygonZkEVMGlobalExitRootL2Factory.signer: ', await PolygonZkEVMGlobalExitRootL2Factory.signer.getAddress());
     let polygonZkEVMGlobalExitRootL2;
+    
     for (let i = 0; i < attemptsDeployProxy; i++) {
         try {
             polygonZkEVMGlobalExitRootL2 = await upgrades.deployProxy(PolygonZkEVMGlobalExitRootL2Factory, [], {
@@ -117,6 +122,7 @@ const createGenesis = async (regisDataDir, deployParameters) => {
                 constructorArgs: [proxyBridgeAddress],
                 unsafeAllow: ['constructor', 'state-variable-immutable'],
             });
+            
             break;
         } catch (error) {
             console.log(`attempt ${i}`);
@@ -130,6 +136,11 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     }
 
     // Assert admin address
+    const PROXY_ADMIN_SLOT = "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103"
+    console.log( "0x" + (await ethers.provider.getStorageAt(polygonZkEVMGlobalExitRootL2.address, PROXY_ADMIN_SLOT)).substring(26));
+    // console.log('polygonZkEVMGlobalExitRootL2: ', polygonZkEVMGlobalExitRootL2);
+    console.log('polygonZkEVMGlobalExitRootL2.address: ', polygonZkEVMGlobalExitRootL2.address);
+    console.log(await upgrades.erc1967.getAdminAddress(polygonZkEVMGlobalExitRootL2.address), await upgrades.erc1967.getAdminAddress(proxyBridgeAddress), proxyAdminAddress);
     expect(await upgrades.erc1967.getAdminAddress(polygonZkEVMGlobalExitRootL2.address)).to.be.equal(proxyAdminAddress);
     expect(await upgrades.erc1967.getAdminAddress(proxyBridgeAddress)).to.be.equal(proxyAdminAddress);
 

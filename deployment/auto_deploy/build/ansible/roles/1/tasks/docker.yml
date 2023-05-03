@@ -1,0 +1,11 @@
+- name: Check docker installed
+  command: docker -v
+  register: result
+  ignore_errors: True
+- name: Install docker
+  apt: update_cache=yes name=docker state=present
+#   shell: apt install docker
+  # shell: echo "apt install docker"
+  register: result
+  when: result is failed
+  ignore_errors: True

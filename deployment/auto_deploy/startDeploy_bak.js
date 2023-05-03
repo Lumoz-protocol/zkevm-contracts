@@ -19,6 +19,10 @@ async function main() {
     const pgClient = await pg.pgConnect(process.env.PG_URL);
     while (true) {
         try {
+            await hre.network.provider.request({
+                method: "hardhat_reset",
+                params: [],
+            });
             const openzeppelin = path.join(__dirname, '../../.openzeppelin');
             console.log(openzeppelin)
             await spawn(`rm -rf ${openzeppelin}`);
@@ -140,7 +144,7 @@ async function main() {
                 }
             }
         } catch (error) {
-            throw new Error(error);
+            console.log('error: ', error);
         }
         // sleep
         // eslint-disable-next-line no-promise-executor-return

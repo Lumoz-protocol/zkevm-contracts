@@ -51,7 +51,6 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     await ethers.provider.send('hardhat_impersonateAccount', [initialZkEVMDeployerOwner]);
     await ethers.provider.send('hardhat_setBalance', [initialZkEVMDeployerOwner, '0xffffffffffffffff']); // 18 ethers aprox
     const deployer = await ethers.getSigner(initialZkEVMDeployerOwner);
-    console.log(deployer.na);
 
     // Deploy PolygonZkEVMDeployer if is not deployed already
     const [zkEVMDeployerContract, keylessDeployer] = await deployPolygonZkEVMDeployer(initialZkEVMDeployerOwner, deployer);

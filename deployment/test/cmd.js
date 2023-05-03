@@ -10,6 +10,10 @@ const { createGenesis } = require('../1_createGenesis');
 
 async function main() {
     for (let i = 0; i < 5; i++) {
+        await hre.network.provider.request({
+            method: "hardhat_reset",
+            params: [],
+          });
         // const i = process.env.reg_id;
         const regisDataDir = path.join(__dirname, './admin'+i);
         let sequencer;

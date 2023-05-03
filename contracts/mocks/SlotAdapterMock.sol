@@ -8,7 +8,7 @@ import { ISlotAdapter } from "../interfaces/ISlotAdapter.sol";
 
 contract SlotAdapterMock is ISlotAdapter, OwnableUpgradeable {
     error OnlyZkEvmContract();
-    event DistributeRewards(uint256 _slotId, address indexed _caller, address indexed _to, uint256 _amount, uint64 _batchNum, uint8 _index); 
+    event DistributeRewards(uint256 _slotId, address indexed _caller, address indexed _to, uint256 _amount, uint64 _batchNum); 
 
     address public zkEvmContract;
 
@@ -31,14 +31,18 @@ contract SlotAdapterMock is ISlotAdapter, OwnableUpgradeable {
         zkEvmContract = _zkEvmContract;
     }
 
-    function distributeRewards(address _recipient, uint64 _batchNum, uint8 _index) external onlyZkEvmContract {
+    function distributeRewards(address _recipient, uint64 _batchNum) external onlyZkEvmContract {
        uint256 _amount = 1;
-       emit DistributeRewards(slotId, address(this), _recipient, _amount, _batchNum, _index); 
+       emit DistributeRewards(slotId, address(this), _recipient, _amount, _batchNum); 
     }
 
     function calcSlotRewatd(uint64 _batchNum) external onlyZkEvmContract {
         if (proverReward[_batchNum] == 0) {
             proverReward[_batchNum] = 1 ether;
         }
+    }
+
+    function punish(address _recipient) external onlyZkEvmContract {
+
     }
 }

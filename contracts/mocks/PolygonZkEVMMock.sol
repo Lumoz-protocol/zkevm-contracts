@@ -174,7 +174,7 @@ contract PolygonZkEVMMock is PolygonZkEVM {
      * @param newLastVerifiedBatch New last verified batch
      */
     function updateBatchFee(uint64 newLastVerifiedBatch) public onlyOwner {
-        _updateBatchFee(newLastVerifiedBatch);
+        // _updateBatchFee(newLastVerifiedBatch);
     }
 
     /**

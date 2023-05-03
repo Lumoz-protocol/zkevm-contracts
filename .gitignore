@@ -1,7 +1,6 @@
 coverage.json
 .env
 cache
-build
 yarn.lock
 node_modules
 package-lock.json

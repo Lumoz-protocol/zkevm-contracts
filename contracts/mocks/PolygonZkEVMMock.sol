@@ -191,7 +191,8 @@ contract PolygonZkEVMMock is PolygonZkEVM {
         sequencedBatches[batchNum] = SequencedBatchData({
             accInputHash: accInputData,
             sequencedTimestamp: timestamp,
-            previousLastBatchSequenced: lastPendingStateConsolidated
+            previousLastBatchSequenced: lastPendingStateConsolidated,
+            blockNumber: 0
         });
     }
 

@@ -67,6 +67,7 @@ contract PolygonZkEVM is
         bytes32 accInputHash;
         uint64 sequencedTimestamp;
         uint64 previousLastBatchSequenced;
+        uint256 blockNumber;
     }
 
     /**
@@ -222,7 +223,7 @@ contract PolygonZkEVM is
 
     // finalNewBatch --> proofHash
     mapping(uint64 => mapping(address => bytes32)) public proverCommitProofHash;
-    mapping(uint64 => uint256) public commitBatchBlock;
+    // mapping(uint64 => uint256) public commitBatchBlock;
     mapping(address => uint256) public proofNum;
 
     // Trusted sequencer URL
@@ -509,7 +510,17 @@ contract PolygonZkEVM is
             revert CommittedProofHash();
         }
         _;
-    }    
+    }
+
+    modifier commitProof(uint64 finalNewBatch) {
+        if (
+            sequencedBatches[finalNewBatch].blockNumber + _COMMIT_NUM <= block.number
+        ) {
+            revert SubmitProofEarly();
+        }
+
+        _;
+    }
 
     /////////////////////////////////////
     // Sequence/Verify batches functions
@@ -641,7 +652,8 @@ contract PolygonZkEVM is
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
-            previousLastBatchSequenced: lastBatchSequenced
+            previousLastBatchSequenced: lastBatchSequenced,
+            blockNumber: 0
         });
 
         // Store back the storage variables
@@ -672,17 +684,26 @@ contract PolygonZkEVM is
     }
 
     function submitProofHash(uint64 initNumBatch, uint64 finalNewBatch, bytes32 _proofHash) external ifNotEmergencyState isCommitProofHash(finalNewBatch) {
-        if (ideDeposit.balanceOf(msg.sender) < _MIN_DEPOSIT) {
+        if (ideDeposit.depositOf(msg.sender) < _MIN_DEPOSIT) {
             revert InsufficientPledge();
         }
-        uint256 number = commitBatchBlock[finalNewBatch];
-        if (number > 0 && (block.number - number) > _COMMIT_NUM) {
+        
+        if (initNumBatch != 0 && sequencedBatches[initNumBatch].accInputHash == bytes32(0)) {
+            revert OldAccInputHashDoesNotExist();
+        }
+
+        if (sequencedBatches[finalNewBatch].accInputHash == bytes32(0)) {
+            revert NewAccInputHashDoesNotExist();
+        }
+
+        uint256 number = sequencedBatches[finalNewBatch].blockNumber;
+        if (number > 0 && (block.number - number) > _COMMIT_NUM) { // 有bug需要修改
             revert CommittedTimeout();
         }
 
         // store hash finalNewBatch -> msg.sender -> _proofHash
         proverCommitProofHash[finalNewBatch][msg.sender] = _proofHash;
-        commitBatchBlock[finalNewBatch] = block.number;
+        sequencedBatches[finalNewBatch].blockNumber = block.number;
 
         emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
     }
@@ -703,16 +724,16 @@ contract PolygonZkEVM is
         bytes32 newLocalExitRoot,
         bytes32 newStateRoot,
         bytes calldata proof
-    ) external ifNotEmergencyState {
+    ) external ifNotEmergencyState commitProof(finalNewBatch) {
         // Check if the trusted aggregator timeout expired,
         // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
-        if (
-            sequencedBatches[finalNewBatch].sequencedTimestamp +
-                trustedAggregatorTimeout >
-            block.timestamp
-        ) {
-            revert TrustedAggregatorTimeoutNotExpired();
-        }
+        // if (
+        //     sequencedBatches[finalNewBatch].sequencedTimestamp +
+        //         trustedAggregatorTimeout >
+        //     block.timestamp
+        // ) {
+        //     revert TrustedAggregatorTimeoutNotExpired();
+        // }
 
         if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
             revert ExceedMaxVerifyBatches();
@@ -775,7 +796,7 @@ contract PolygonZkEVM is
         bytes32 newLocalExitRoot,
         bytes32 newStateRoot,
         bytes calldata proof
-    ) external onlyTrustedAggregator {
+    ) external onlyTrustedAggregator commitProof(finalNewBatch) {
         _verifyAndRewardBatches(
             pendingStateNum,
             initNumBatch,
@@ -821,6 +842,7 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) internal isSlotAdapterEmpty isCommitProofHash(finalNewBatch) {
+        // 增加10个区块以后的验证
         bytes32 oldStateRoot;
         uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
 
@@ -887,7 +909,7 @@ contract PolygonZkEVM is
         //         (finalNewBatch - currentLastVerifiedBatch)
         // );
         proofNum[msg.sender]++;
-        slotAdapter.distributeRewards(msg.sender, finalNewBatch);
+        slotAdapter.distributeRewards(msg.sender, initNumBatch, finalNewBatch);
     }
 
     /**
@@ -1215,7 +1237,8 @@ contract PolygonZkEVM is
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
-            previousLastBatchSequenced: lastBatchSequenced
+            previousLastBatchSequenced: lastBatchSequenced,
+            blockNumber: 0
         });
         lastBatchSequenced = currentBatchSequenced;
         lastForceBatchSequenced = currentLastForceBatchSequenced;

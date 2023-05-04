@@ -31,9 +31,9 @@ contract SlotAdapterMock is ISlotAdapter, OwnableUpgradeable {
         zkEvmContract = _zkEvmContract;
     }
 
-    function distributeRewards(address _recipient, uint64 _batchNum) external onlyZkEvmContract {
+    function distributeRewards(address _recipient, uint64 _initNumBatch, uint64 _finalNewBatch) external onlyZkEvmContract {
        uint256 _amount = 1;
-       emit DistributeRewards(slotId, address(this), _recipient, _amount, _batchNum); 
+       emit DistributeRewards(slotId, address(this), _recipient, _amount, _finalNewBatch); 
     }
 
     function calcSlotRewatd(uint64 _batchNum) external onlyZkEvmContract {

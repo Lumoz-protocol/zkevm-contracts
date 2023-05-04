@@ -218,4 +218,6 @@ interface IPolygonZkEVMErrors {
     error InsufficientPledge();
 
     error CommittedBatches();
+
+    error SubmitProofEarly();
 }

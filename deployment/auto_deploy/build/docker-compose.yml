@@ -71,21 +71,6 @@ services:
       - "-c"
       - "/app/zkevm-node run --genesis /app/genesis.json --cfg /app/config.toml --components synchronizer"
 
-  zkevm-broadcast:
-    container_name: zkevm-broadcast
-    image: zkevm-node
-    environment:
-      - ZKEVM_NODE_STATEDB_HOST=zkevm-state-db
-    ports:
-      - 61090:61090
-    volumes:
-      - ./node.config.toml:/app/config.toml
-      - ./genesis.json:/app/genesis.json
-    command:
-      - "/bin/sh"
-      - "-c"
-      - "/app/zkevm-node run --genesis /app/genesis.json --cfg /app/config.toml --components broadcast-trusted-state"
-
   zkevm-eth-tx-manager:
     container_name: zkevm-eth-tx-manager
     image: zkevm-node
@@ -159,6 +144,28 @@ services:
       - "-N"
       - "500"
 
+  zkevm-event-db:
+    container_name: zkevm-event-db
+    image: postgres
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    ports:
+      - 5435:5432
+    volumes:
+      - ../db/scripts/init_event_db.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_USER=event_user
+      - POSTGRES_PASSWORD=event_password
+      - POSTGRES_DB=event_db
+    command:
+      - "postgres"
+      - "-N"
+      - "500"
+
   zkevm-bridge-db:
     container_name: zkevm-bridge-db
     image: postgres
@@ -169,9 +176,9 @@ services:
         reservations:
           memory: 1G
     expose:
-      - 5435
+      - 5436
     ports:
-      - 5435:5432
+      - 5436:5432
     environment:
       - POSTGRES_USER=test_user
       - POSTGRES_PASSWORD=test_password
@@ -231,7 +238,7 @@ services:
 
   zkevm-prover:
     container_name: zkevm-prover
-    image: hermeznetwork/zkevm-prover:40338c3
+    image: hermeznetwork/zkevm-prover:b6fe2db
     ports:
       # - 50051:50051 # Prover
       - 50052:50052 # Mock prover
@@ -241,17 +248,6 @@ services:
       - ./prover.config.json:/usr/src/app/config.json
     command: >
       zkProver -c /usr/src/app/config.json
-
-  zkprover-mock:
-    container_name: zkprover-mock
-    image: hermeznetwork/zkprover-mock:latest
-    ports:
-      - 43061:43061 # MT
-      - 43071:43071 # Executor
-    volumes:
-      - ./vectors/src:/app/testvectors
-    command: >
-      /app/zkprover-mock server --statedb-port 43061 --executor-port 43071 --test-vector-path /app/testvectors
 
   zkevm-approve:
     container_name: zkevm-approve
@@ -341,6 +337,7 @@ services:
       - ZKEVM_BRIDGE_DATABASE_HOST=zkevm-bridge-db
       - ZKEVM_BRIDGE_DATABASE_PORT=5432
     volumes:
+      - ./test/test.keystore.claimtx:/pk/keystore.claimtxmanager
       - ./bridge.toml:/app/config.toml
     command:
       - "/bin/sh"

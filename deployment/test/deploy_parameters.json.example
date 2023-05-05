@@ -1,0 +1,23 @@
+{
+    "realVerifier": false,
+    "trustedSequencerURL": "http://zkevm-json-rpc:8123",
+    "networkName": "zkevm",
+    "version":"0.0.1",
+    "trustedSequencer":"",
+    "chainID": 1001,
+    "trustedAggregator":"",
+    "trustedAggregatorTimeout": 604799,
+    "pendingStateTimeout": 604799,
+    "forkID": 4,
+    "admin":"",
+    "zkEVMOwner": "",
+    "timelockAddress": "",
+    "minDelayTimelock": 3600,
+    "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "initialZkEVMDeployerOwner" :"0xaddress",
+    "zkEVMDeployerAddress":"",
+    "deployerPvtKey": "",
+    "maxFeePerGas":"200",
+    "maxPriorityFeePerGas":"5",
+    "multiplierGas": ""
+}

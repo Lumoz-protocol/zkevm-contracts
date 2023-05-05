@@ -13,6 +13,6 @@ contract SendData {
      * @param data Data
      */
     function sendData(address destination, bytes memory data) public {
-        destination.call(data);
+        // destination.call(data);
     }
 }

@@ -27,7 +27,6 @@ contract PolygonZkEVMMock is PolygonZkEVM {
     )
         PolygonZkEVM(
             _globalExitRootManager,
-            _matic,
             _rollupVerifier,
             _bridgeAddress,
             _chainID,
@@ -177,7 +176,7 @@ contract PolygonZkEVMMock is PolygonZkEVM {
      * @param newLastVerifiedBatch New last verified batch
      */
     function updateBatchFee(uint64 newLastVerifiedBatch) public onlyOwner {
-        _updateBatchFee(newLastVerifiedBatch);
+        // _updateBatchFee(newLastVerifiedBatch);
     }
 
     /**
@@ -194,7 +193,8 @@ contract PolygonZkEVMMock is PolygonZkEVM {
         sequencedBatches[batchNum] = SequencedBatchData({
             accInputHash: accInputData,
             sequencedTimestamp: timestamp,
-            previousLastBatchSequenced: lastPendingStateConsolidated
+            previousLastBatchSequenced: lastPendingStateConsolidated,
+            blockNumber: 0
         });
     }
 

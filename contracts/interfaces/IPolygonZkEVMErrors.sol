@@ -208,4 +208,16 @@ interface IPolygonZkEVMErrors {
      * @dev Thrown when try to activate force batches when they are already active
      */
     error ForceBatchesAlreadyActive();
+
+    error SlotAdapterEmpty();
+
+    error CommittedProofHash();
+
+    error CommittedTimeout();
+
+    error InsufficientPledge();
+
+    error CommittedBatches();
+
+    error SubmitProofEarly();
 }

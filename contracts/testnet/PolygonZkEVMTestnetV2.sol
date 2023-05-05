@@ -28,7 +28,6 @@ contract PolygonZkEVMTestnetV2 is PolygonZkEVM {
     )
         PolygonZkEVM(
             _globalExitRootManager,
-            _matic,
             _rollupVerifier,
             _bridgeAddress,
             _chainID,

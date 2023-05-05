@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IPolygonZkEVMBridge.sol";
 import "./lib/EmergencyManager.sol";
 import "./interfaces/IPolygonZkEVMErrors.sol";
+import "./interfaces/ISlotAdapter.sol";
+import "./interfaces/IDeposit.sol";
 
 /**
  * Contract responsible for managing the states and the updates of L2 network.
@@ -65,6 +67,7 @@ contract PolygonZkEVM is
         bytes32 accInputHash;
         uint64 sequencedTimestamp;
         uint64 previousLastBatchSequenced;
+        uint256 blockNumber;
     }
 
     /**
@@ -144,8 +147,13 @@ contract PolygonZkEVM is
     // Max uint64
     uint256 internal constant _MAX_UINT_64 = type(uint64).max; // 0xFFFFFFFFFFFFFFFF
 
-    // MATIC token address
-    IERC20Upgradeable public immutable matic;
+    uint8 internal constant _COMMIT_NUM = 10;
+
+    uint256 internal constant _MIN_DEPOSIT = 100000 ether;
+
+    ISlotAdapter public slotAdapter;
+
+    IDeposit public ideDeposit;
 
     // Rollup verifier interface
     IVerifierRollup public immutable rollupVerifier;
@@ -206,6 +214,15 @@ contract PolygonZkEVM is
     // State root mapping
     // BatchNum --> state root
     mapping(uint64 => bytes32) public batchNumToStateRoot;
+
+        // blocknumber --> true
+    mapping(uint => bool) public blockCommitBatchs;
+
+    // finalNewBatch --> proofHash
+    mapping(uint64 => mapping(address => bytes32)) public proverCommitProofHash;
+    // mapping(uint64 => uint256) public commitBatchBlock;
+    mapping(address => uint256) public proofNum;
+
 
     // Trusted sequencer URL
     string public trustedSequencerURL;
@@ -367,9 +384,10 @@ contract PolygonZkEVM is
      */
     event UpdateZkEVMVersion(uint64 numBatch, uint64 forkID, string version);
 
+    event SubmitProofHash(address _prover, uint64 initNumBatch, uint64 finalNewBatch, bytes32 _proofHash);
+
     /**
      * @param _globalExitRootManager Global exit root manager address
-     * @param _matic MATIC token address
      * @param _rollupVerifier Rollup verifier address
      * @param _bridgeAddress Bridge address
      * @param _chainID L2 chainID
@@ -377,14 +395,12 @@ contract PolygonZkEVM is
      */
     constructor(
         IPolygonZkEVMGlobalExitRoot _globalExitRootManager,
-        IERC20Upgradeable _matic,
         IVerifierRollup _rollupVerifier,
         IPolygonZkEVMBridge _bridgeAddress,
         uint64 _chainID,
         uint64 _forkID
     ) {
         globalExitRootManager = _globalExitRootManager;
-        matic = _matic;
         rollupVerifier = _rollupVerifier;
         bridgeAddress = _bridgeAddress;
         chainID = _chainID;
@@ -472,6 +488,30 @@ contract PolygonZkEVM is
         _;
     }
 
+    modifier isSlotAdapterEmpty() {
+        if (address(slotAdapter) == address(0)) {
+            revert SlotAdapterEmpty();
+        }
+        _;
+    }
+
+    modifier isCommitProofHash(uint64 finalNewBatch) {
+        if (proverCommitProofHash[finalNewBatch][msg.sender] != bytes32(0)) {
+            revert CommittedProofHash();
+        }
+        _;
+    }
+
+    modifier commitProof(uint64 finalNewBatch) {
+        if (
+            sequencedBatches[finalNewBatch].blockNumber + _COMMIT_NUM <= block.number
+        ) {
+            revert SubmitProofEarly();
+        }
+
+        _;
+    }
+
     /////////////////////////////////////
     // Sequence/Verify batches functions
     ////////////////////////////////////
@@ -485,6 +525,10 @@ contract PolygonZkEVM is
         BatchData[] calldata batches,
         address l2Coinbase
     ) external ifNotEmergencyState onlyTrustedSequencer {
+        if (blockCommitBatchs[block.number]) {
+            revert CommittedBatches();
+        }
+
         uint256 batchesNum = batches.length;
         if (batchesNum == 0) {
             revert SequenceZeroBatches();
@@ -598,7 +642,8 @@ contract PolygonZkEVM is
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
-            previousLastBatchSequenced: lastBatchSequenced
+            previousLastBatchSequenced: lastBatchSequenced,
+            blockNumber: 0
         });
 
         // Store back the storage variables
@@ -608,12 +653,7 @@ contract PolygonZkEVM is
         if (currentLastForceBatchSequenced != initLastForceBatchSequenced)
             lastForceBatchSequenced = currentLastForceBatchSequenced;
 
-        // Pay collateral for every non-forced batch submitted
-        matic.safeTransferFrom(
-            msg.sender,
-            address(this),
-            batchFee * nonForcedBatchesSequenced
-        );
+
 
         // Consolidate pending state if possible
         _tryConsolidatePendingState();
@@ -621,8 +661,39 @@ contract PolygonZkEVM is
         // Update global exit root if there are new deposits
         bridgeAddress.updateGlobalExitRoot();
 
+        blockCommitBatchs[block.number] = true;
+        // calc slot reward
+        slotAdapter.calcSlotRewatd(currentBatchSequenced);
+
         emit SequenceBatches(currentBatchSequenced);
     }
+
+
+    function submitProofHash(uint64 initNumBatch, uint64 finalNewBatch, bytes32 _proofHash) external ifNotEmergencyState isCommitProofHash(finalNewBatch) {
+        if (ideDeposit.depositOf(msg.sender) < _MIN_DEPOSIT) {
+            revert InsufficientPledge();
+        }
+        
+        if (initNumBatch != 0 && sequencedBatches[initNumBatch].accInputHash == bytes32(0)) {
+            revert OldAccInputHashDoesNotExist();
+        }
+
+        if (sequencedBatches[finalNewBatch].accInputHash == bytes32(0)) {
+            revert NewAccInputHashDoesNotExist();
+        }
+
+        uint256 number = sequencedBatches[finalNewBatch].blockNumber;
+        if (number > 0 && (block.number - number) > _COMMIT_NUM) { // 有bug需要修改
+            revert CommittedTimeout();
+        }
+
+        // store hash finalNewBatch -> msg.sender -> _proofHash
+        proverCommitProofHash[finalNewBatch][msg.sender] = _proofHash;
+        sequencedBatches[finalNewBatch].blockNumber = block.number;
+
+        emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
+    }
+
 
     /**
      * @notice Allows an aggregator to verify multiple batches
@@ -643,13 +714,13 @@ contract PolygonZkEVM is
     ) external ifNotEmergencyState {
         // Check if the trusted aggregator timeout expired,
         // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
-        if (
-            sequencedBatches[finalNewBatch].sequencedTimestamp +
-                trustedAggregatorTimeout >
-            block.timestamp
-        ) {
-            revert TrustedAggregatorTimeoutNotExpired();
-        }
+        // if (
+        //     sequencedBatches[finalNewBatch].sequencedTimestamp +
+        //         trustedAggregatorTimeout >
+        //     block.timestamp
+        // ) {
+        //     revert TrustedAggregatorTimeoutNotExpired();
+        // }
 
         if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
             revert ExceedMaxVerifyBatches();
@@ -665,7 +736,7 @@ contract PolygonZkEVM is
         );
 
         // Update batch fees
-        _updateBatchFee(finalNewBatch);
+        // _updateBatchFee(finalNewBatch);
 
         if (pendingStateTimeout == 0) {
             // Consolidate state
@@ -759,7 +830,7 @@ contract PolygonZkEVM is
         bytes32 newLocalExitRoot,
         bytes32 newStateRoot,
         bytes calldata proof
-    ) internal {
+    ) internal isSlotAdapterEmpty isCommitProofHash(finalNewBatch) {
         bytes32 oldStateRoot;
         uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
 
@@ -815,15 +886,12 @@ contract PolygonZkEVM is
         uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
         // Verify proof
         if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
+            slotAdapter.punish(msg.sender);
             revert InvalidProof();
         }
 
-        // Get MATIC reward
-        matic.safeTransfer(
-            msg.sender,
-            calculateRewardPerBatch() *
-                (finalNewBatch - currentLastVerifiedBatch)
-        );
+        proofNum[msg.sender]++;
+        slotAdapter.distributeRewards(msg.sender, initNumBatch, finalNewBatch);
     }
 
     /**
@@ -909,98 +977,98 @@ contract PolygonZkEVM is
         );
     }
 
-    /**
-     * @notice Function to update the batch fee based on the new verified batches
-     * The batch fee will not be updated when the trusted aggregator verifies batches
-     * @param newLastVerifiedBatch New last verified batch
-     */
-    function _updateBatchFee(uint64 newLastVerifiedBatch) internal {
-        uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
-        uint64 currentBatch = newLastVerifiedBatch;
+    // /**
+    //  * @notice Function to update the batch fee based on the new verified batches
+    //  * The batch fee will not be updated when the trusted aggregator verifies batches
+    //  * @param newLastVerifiedBatch New last verified batch
+    //  */
+    // function _updateBatchFee(uint64 newLastVerifiedBatch) internal {
+    //     uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
+    //     uint64 currentBatch = newLastVerifiedBatch;
 
-        uint256 totalBatchesAboveTarget;
-        uint256 newBatchesVerified = newLastVerifiedBatch -
-            currentLastVerifiedBatch;
+    //     uint256 totalBatchesAboveTarget;
+    //     uint256 newBatchesVerified = newLastVerifiedBatch -
+    //         currentLastVerifiedBatch;
 
-        uint256 targetTimestamp = block.timestamp - verifyBatchTimeTarget;
+    //     uint256 targetTimestamp = block.timestamp - verifyBatchTimeTarget;
 
-        while (currentBatch != currentLastVerifiedBatch) {
-            // Load sequenced batchdata
-            SequencedBatchData
-                storage currentSequencedBatchData = sequencedBatches[
-                    currentBatch
-                ];
+    //     while (currentBatch != currentLastVerifiedBatch) {
+    //         // Load sequenced batchdata
+    //         SequencedBatchData
+    //             storage currentSequencedBatchData = sequencedBatches[
+    //                 currentBatch
+    //             ];
 
-            // Check if timestamp is below the verifyBatchTimeTarget
-            if (
-                targetTimestamp < currentSequencedBatchData.sequencedTimestamp
-            ) {
-                // update currentBatch
-                currentBatch = currentSequencedBatchData
-                    .previousLastBatchSequenced;
-            } else {
-                // The rest of batches will be above
-                totalBatchesAboveTarget =
-                    currentBatch -
-                    currentLastVerifiedBatch;
-                break;
-            }
-        }
+    //         // Check if timestamp is below the verifyBatchTimeTarget
+    //         if (
+    //             targetTimestamp < currentSequencedBatchData.sequencedTimestamp
+    //         ) {
+    //             // update currentBatch
+    //             currentBatch = currentSequencedBatchData
+    //                 .previousLastBatchSequenced;
+    //         } else {
+    //             // The rest of batches will be above
+    //             totalBatchesAboveTarget =
+    //                 currentBatch -
+    //                 currentLastVerifiedBatch;
+    //             break;
+    //         }
+    //     }
 
-        uint256 totalBatchesBelowTarget = newBatchesVerified -
-            totalBatchesAboveTarget;
+    //     uint256 totalBatchesBelowTarget = newBatchesVerified -
+    //         totalBatchesAboveTarget;
 
-        // _MAX_BATCH_FEE --> (< 70 bits)
-        // multiplierBatchFee --> (< 10 bits)
-        // _MAX_BATCH_MULTIPLIER = 12
-        // multiplierBatchFee ** _MAX_BATCH_MULTIPLIER --> (< 128 bits)
-        // batchFee * (multiplierBatchFee ** _MAX_BATCH_MULTIPLIER)-->
-        // (< 70 bits) * (< 128 bits) = < 256 bits
+    //     // _MAX_BATCH_FEE --> (< 70 bits)
+    //     // multiplierBatchFee --> (< 10 bits)
+    //     // _MAX_BATCH_MULTIPLIER = 12
+    //     // multiplierBatchFee ** _MAX_BATCH_MULTIPLIER --> (< 128 bits)
+    //     // batchFee * (multiplierBatchFee ** _MAX_BATCH_MULTIPLIER)-->
+    //     // (< 70 bits) * (< 128 bits) = < 256 bits
 
-        // Since all the following operations cannot overflow, we can optimize this operations with unchecked
-        unchecked {
-            if (totalBatchesBelowTarget < totalBatchesAboveTarget) {
-                // There are more batches above target, fee is multiplied
-                uint256 diffBatches = totalBatchesAboveTarget -
-                    totalBatchesBelowTarget;
+    //     // Since all the following operations cannot overflow, we can optimize this operations with unchecked
+    //     unchecked {
+    //         if (totalBatchesBelowTarget < totalBatchesAboveTarget) {
+    //             // There are more batches above target, fee is multiplied
+    //             uint256 diffBatches = totalBatchesAboveTarget -
+    //                 totalBatchesBelowTarget;
 
-                diffBatches = diffBatches > _MAX_BATCH_MULTIPLIER
-                    ? _MAX_BATCH_MULTIPLIER
-                    : diffBatches;
+    //             diffBatches = diffBatches > _MAX_BATCH_MULTIPLIER
+    //                 ? _MAX_BATCH_MULTIPLIER
+    //                 : diffBatches;
 
-                // For every multiplierBatchFee multiplication we must shift 3 zeroes since we have 3 decimals
-                batchFee =
-                    (batchFee * (uint256(multiplierBatchFee) ** diffBatches)) /
-                    (uint256(1000) ** diffBatches);
-            } else {
-                // There are more batches below target, fee is divided
-                uint256 diffBatches = totalBatchesBelowTarget -
-                    totalBatchesAboveTarget;
+    //             // For every multiplierBatchFee multiplication we must shift 3 zeroes since we have 3 decimals
+    //             batchFee =
+    //                 (batchFee * (uint256(multiplierBatchFee) ** diffBatches)) /
+    //                 (uint256(1000) ** diffBatches);
+    //         } else {
+    //             // There are more batches below target, fee is divided
+    //             uint256 diffBatches = totalBatchesBelowTarget -
+    //                 totalBatchesAboveTarget;
 
-                diffBatches = diffBatches > _MAX_BATCH_MULTIPLIER
-                    ? _MAX_BATCH_MULTIPLIER
-                    : diffBatches;
+    //             diffBatches = diffBatches > _MAX_BATCH_MULTIPLIER
+    //                 ? _MAX_BATCH_MULTIPLIER
+    //                 : diffBatches;
 
-                // For every multiplierBatchFee multiplication we must shift 3 zeroes since we have 3 decimals
-                uint256 accDivisor = (uint256(1 ether) *
-                    (uint256(multiplierBatchFee) ** diffBatches)) /
-                    (uint256(1000) ** diffBatches);
+    //             // For every multiplierBatchFee multiplication we must shift 3 zeroes since we have 3 decimals
+    //             uint256 accDivisor = (uint256(1 ether) *
+    //                 (uint256(multiplierBatchFee) ** diffBatches)) /
+    //                 (uint256(1000) ** diffBatches);
 
-                // multiplyFactor = multiplierBatchFee ** diffBatches / 10 ** (diffBatches * 3)
-                // accDivisor = 1E18 * multiplyFactor
-                // 1E18 * batchFee / accDivisor = batchFee / multiplyFactor
-                // < 60 bits * < 70 bits / ~60 bits --> overflow not possible
-                batchFee = (uint256(1 ether) * batchFee) / accDivisor;
-            }
-        }
+    //             // multiplyFactor = multiplierBatchFee ** diffBatches / 10 ** (diffBatches * 3)
+    //             // accDivisor = 1E18 * multiplyFactor
+    //             // 1E18 * batchFee / accDivisor = batchFee / multiplyFactor
+    //             // < 60 bits * < 70 bits / ~60 bits --> overflow not possible
+    //             batchFee = (uint256(1 ether) * batchFee) / accDivisor;
+    //         }
+    //     }
 
-        // Batch fee must remain inside a range
-        if (batchFee > _MAX_BATCH_FEE) {
-            batchFee = _MAX_BATCH_FEE;
-        } else if (batchFee < _MIN_BATCH_FEE) {
-            batchFee = _MIN_BATCH_FEE;
-        }
-    }
+    //     // Batch fee must remain inside a range
+    //     if (batchFee > _MAX_BATCH_FEE) {
+    //         batchFee = _MAX_BATCH_FEE;
+    //     } else if (batchFee < _MIN_BATCH_FEE) {
+    //         batchFee = _MIN_BATCH_FEE;
+    //     }
+    // }
 
     ////////////////////////////
     // Force batches functions
@@ -1015,6 +1083,7 @@ contract PolygonZkEVM is
      * @param transactions L2 ethereum transactions EIP-155 or pre-EIP-155 with signature:
      * @param maticAmount Max amount of MATIC tokens that the sender is willing to pay
      */
+     // todo
     function forceBatch(
         bytes calldata transactions,
         uint256 maticAmount
@@ -1030,8 +1099,6 @@ contract PolygonZkEVM is
             revert TransactionsLengthAboveMax();
         }
 
-        matic.safeTransferFrom(msg.sender, address(this), maticFee);
-
         // Get globalExitRoot global exit root
         bytes32 lastGlobalExitRoot = globalExitRootManager
             .getLastGlobalExitRoot();
@@ -1046,6 +1113,10 @@ contract PolygonZkEVM is
                 uint64(block.timestamp)
             )
         );
+
+        // blockCommitBatchs[block.number] = true;
+        // // calc slot reward
+        // slotAdapter.calcSlotRewatd(currentBatchSequenced);
 
         if (msg.sender == tx.origin) {
             // Getting the calldata from an EOA is easy so no need to put the `transactions` in the event
@@ -1151,7 +1222,8 @@ contract PolygonZkEVM is
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
-            previousLastBatchSequenced: lastBatchSequenced
+            previousLastBatchSequenced: lastBatchSequenced,
+            blockNumber: 0
         });
         lastBatchSequenced = currentBatchSequenced;
         lastForceBatchSequenced = currentLastForceBatchSequenced;
@@ -1162,6 +1234,17 @@ contract PolygonZkEVM is
     //////////////////
     // admin functions
     //////////////////
+
+
+    function setSlotAdapter(address _slotAdapter) public onlyAdmin {
+        require(_slotAdapter != address(0), "Set slotAdapter zero address");
+        slotAdapter = ISlotAdapter(_slotAdapter);
+    }
+
+    function setDeposit(address _ideDeposit) public onlyAdmin {
+        require(_ideDeposit != address(0), "Set slotAdapter zero address");
+        ideDeposit = IDeposit(_ideDeposit);
+    }
 
     /**
      * @notice Allow the admin to set a new trusted sequencer
@@ -1609,22 +1692,6 @@ contract PolygonZkEVM is
         return (pendingStateTransitions[pendingStateNum].timestamp +
             pendingStateTimeout <=
             block.timestamp);
-    }
-
-    /**
-     * @notice Function to calculate the reward to verify a single batch
-     */
-    function calculateRewardPerBatch() public view returns (uint256) {
-        uint256 currentBalance = matic.balanceOf(address(this));
-
-        // Total Sequenced Batches = forcedBatches to be sequenced (total forced Batches - sequenced Batches) + sequencedBatches
-        // Total Batches to be verified = Total Sequenced Batches - verified Batches
-        uint256 totalBatchesToVerify = ((lastForceBatch -
-            lastForceBatchSequenced) + lastBatchSequenced) -
-            getLastVerifiedBatch();
-
-        if (totalBatchesToVerify == 0) return 0;
-        return currentBalance / totalBatchesToVerify;
     }
 
     /**

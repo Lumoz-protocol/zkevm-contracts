@@ -7,9 +7,9 @@ const { spawn: _spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const pg = require('./utils/pg');
-const { createGenesis } = require('../1_createGenesis');
-const { deployDeployer } = require('../2_deployPolygonZKEVMDeployer');
-const { deployContracts } = require('../3_deployContracts');
+const { createGenesis } = require('../createGenesis');
+const { deployDeployer } = require('../deployPolygonZKEVMDeployer');
+const { deployContracts } = require('../deployContracts');
 
 if (process.env.PG_URL === undefined || process.env.PG_URL === '') {
     throw new Error('PG_URL is empty');

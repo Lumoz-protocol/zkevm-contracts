@@ -120,11 +120,11 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     /*
      *Deployment Global exit root manager
      */
-    
+
     const PolygonZkEVMGlobalExitRootL2Factory = await ethers.getContractFactory('PolygonZkEVMGlobalExitRootL2', deployer);
     console.log('PolygonZkEVMGlobalExitRootL2Factory.signer: ', await PolygonZkEVMGlobalExitRootL2Factory.signer.getAddress());
     let polygonZkEVMGlobalExitRootL2;
-    
+
     for (let i = 0; i < attemptsDeployProxy; i++) {
         try {
             polygonZkEVMGlobalExitRootL2 = await upgrades.deployProxy(PolygonZkEVMGlobalExitRootL2Factory, [], {
@@ -132,7 +132,7 @@ const createGenesis = async (regisDataDir, deployParameters) => {
                 constructorArgs: [proxyBridgeAddress],
                 unsafeAllow: ['constructor', 'state-variable-immutable'],
             });
-            
+
             break;
         } catch (error) {
             console.log(`attempt ${i}`);
@@ -302,6 +302,13 @@ const createGenesis = async (regisDataDir, deployParameters) => {
         balance: '0',
         nonce: deployerInfo.nonce.toString(),
         address: deployer.address,
+    });
+
+    genesis.push({
+        accountName: 'claimTxManager',
+        balance: '100000000000000000000',
+        nonce: 0,
+        address: deployParameters.claimTxManager,
     });
 
     if (argv.test) {

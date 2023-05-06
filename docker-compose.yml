@@ -338,6 +338,7 @@ services:
       - ZKEVM_BRIDGE_DATABASE_PORT=5432
     volumes:
       - ./bridge.toml:/app/config.toml
+      - ./claimtxmanager.keystore:/pk/keystore.claimtxmanager
     command:
       - "/bin/sh"
       - "-c"

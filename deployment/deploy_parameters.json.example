@@ -16,6 +16,7 @@
     "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "initialZkEVMDeployerOwner" :"0xaddress",
     "maticTokenAddress":"0x617b3a3528F9cDd6630fd3301B9c8911F7Bf063D",
+    "claimTxManager":""
     "zkEVMDeployerAddress":"",
     "deployerPvtKey": "",
     "maxFeePerGas":"",

@@ -53,7 +53,6 @@ async function main() {
         'minDelayTimelock',
         'salt',
         'zkEVMDeployerAddress',
-        'maticTokenAddress',
     ];
 
     for (const parameterName of mandatoryDeploymentParameters) {
@@ -79,11 +78,10 @@ async function main() {
         minDelayTimelock,
         salt,
         zkEVMDeployerAddress,
-        maticTokenAddress,
     } = deployParameters;
 
     // Load provider
-    let currentProvider = ethers.provider;
+    let currentProvider = new ethers.providers.FallbackProvider([ethers.provider], 1);
     if (deployParameters.multiplierGas || deployParameters.maxFeePerGas) {
         if (process.env.HARDHAT_NETWORK !== 'hardhat') {
             currentProvider = new ethers.providers.JsonRpcProvider(`https://${process.env.HARDHAT_NETWORK}.infura.io/v3/${process.env.INFURA_PROJECT_ID}`);
@@ -333,7 +331,6 @@ async function main() {
     console.log('#######################');
     console.log('deployer:', deployer.address);
     console.log('PolygonZkEVMGlobalExitRootAddress:', polygonZkEVMGlobalExitRoot.address);
-    console.log('maticTokenAddress:', maticTokenAddress);
     console.log('verifierAddress:', verifierContract.address);
     console.log('polygonZkEVMBridgeContract:', polygonZkEVMBridgeContract.address);
 
@@ -374,7 +371,6 @@ async function main() {
                     {
                         constructorArgs: [
                             polygonZkEVMGlobalExitRoot.address,
-                            maticTokenAddress,
                             verifierContract.address,
                             polygonZkEVMBridgeContract.address,
                             chainID,
@@ -437,7 +433,6 @@ async function main() {
     console.log('#####    Checks  PolygonZkEVM  #####');
     console.log('#######################');
     console.log('PolygonZkEVMGlobalExitRootAddress:', await polygonZkEVMContract.globalExitRootManager());
-    console.log('maticTokenAddress:', await polygonZkEVMContract.matic());
     console.log('verifierAddress:', await polygonZkEVMContract.rollupVerifier());
     console.log('polygonZkEVMBridgeContract:', await polygonZkEVMContract.bridgeAddress());
 
@@ -512,7 +507,6 @@ async function main() {
         polygonZkEVMAddress: polygonZkEVMContract.address,
         polygonZkEVMBridgeAddress: polygonZkEVMBridgeContract.address,
         polygonZkEVMGlobalExitRootAddress: polygonZkEVMGlobalExitRoot.address,
-        maticTokenAddress,
         verifierAddress: verifierContract.address,
         zkEVMDeployerContract: zkEVMDeployerContract.address,
         deployerAddress: deployer.address,

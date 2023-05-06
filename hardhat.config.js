@@ -66,6 +66,10 @@ module.exports = {
     ]
   },
   networks: {
+    opsideTestnet: {
+      url: `http://69.194.1.66:10004`,
+      chainId: 51178,
+    },
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
       accounts: {

@@ -76,7 +76,7 @@ async function main() {
                         deployParams.trustedAggregator = aggregator.address;
 
                         fs.writeFileSync(paramsDir, JSON.stringify(deployParams, null, 1));
-                        
+
                         hre.changeNetwork('hardhat');
                         await pgClient.query(
                             'update request_record set zkrollup_contract_status = 1 '
@@ -153,20 +153,7 @@ async function main() {
 }
 
 async function createRandomWallet(regisDataDir, role) {
-    let keystoreDir;
-    switch (role) {
-    case 'sequencer':
-        keystoreDir = path.join(regisDataDir, './sequencer.keystore');
-        break;
-    case 'aggregator':
-        keystoreDir = path.join(regisDataDir, './aggregator.keystore');
-        break;
-    case 'deployer':
-        keystoreDir = path.join(regisDataDir, './deployer.keystore');
-        break;
-    default:
-        throw new Error('Invalid role');
-    }
+    const keystoreDir = path.join(regisDataDir, `./${role}.keystore`);
 
     let wallet;
     if (!fs.existsSync(keystoreDir)) {

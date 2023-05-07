@@ -46,6 +46,12 @@ async function main() {
                 path.join(regisDataDir, './deploy_parameters.json'),
             );
 
+            // load claimTxManager Account
+            const claimTxManager = new ethers.Wallet(process.env.CLAIM_TX_MANAGER_PRIVKEY);
+            await claimTxManager.encrypt('testonly').then((json) => {
+                fs.writeFileSync(path.join(regisDataDir, './claimtxmanager.keystore'), json);
+            });
+
             const deployer = await createRandomWallet(regisDataDir, 'deployer');
             const paramsDir = path.join(regisDataDir, './deploy_parameters.json');
             const deployParams = JSON.parse(fs.readFileSync(paramsDir).toString());
@@ -63,9 +69,10 @@ async function main() {
 
             deployParams.trustedSequencer = sequencer.address;
             deployParams.trustedAggregator = aggregator.address;
+            deployParams.claimTxManager = claimTxManager.address;
 
             fs.writeFileSync(paramsDir, JSON.stringify(deployParams, null, 1));
-            
+
             hre.changeNetwork('hardhat');
             await pgClient.query(
                 'update request_record set zkrollup_contract_status = 1 '
@@ -132,20 +139,7 @@ async function main() {
 }
 
 async function createRandomWallet(regisDataDir, role) {
-    let keystoreDir;
-    switch (role) {
-    case 'sequencer':
-        keystoreDir = path.join(regisDataDir, './sequencer.keystore');
-        break;
-    case 'aggregator':
-        keystoreDir = path.join(regisDataDir, './aggregator.keystore');
-        break;
-    case 'deployer':
-        keystoreDir = path.join(regisDataDir, './deployer.keystore');
-        break;
-    default:
-        throw new Error('Invalid role');
-    }
+    const keystoreDir = path.join(regisDataDir, `./${role}.keystore`);
 
     let wallet;
     if (!fs.existsSync(keystoreDir)) {

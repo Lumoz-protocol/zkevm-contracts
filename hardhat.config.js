@@ -5,6 +5,7 @@ require('solidity-coverage');
 require('@nomiclabs/hardhat-etherscan');
 require('@openzeppelin/hardhat-upgrades');
 require('hardhat-dependency-compiler');
+require('hardhat-contract-sizer');
 
 const DEFAULT_MNEMONIC = 'test test test test test test test test test test test junk';
 
@@ -65,10 +66,23 @@ module.exports = {
       }
     ]
   },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    // strict: true,
+  },
   networks: {
     opsideTestnet: {
-      url: `http://69.194.1.66:10004`,
+      // url: `http://159.135.192.196:8545`,
+      url: `http://159.135.192.192:11002`,
       chainId: 51178,
+      // gasPrice: 1100000000000,
+      gas: 5000000,
+    },
+    opsideRollupTestnet: {
+      url: `http://61.10.9.22:10026`,
+      chainId: 1003,
     },
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,

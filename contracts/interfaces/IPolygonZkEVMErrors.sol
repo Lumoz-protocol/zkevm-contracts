@@ -220,4 +220,6 @@ interface IPolygonZkEVMErrors {
     error CommittedBatches();
 
     error SubmitProofEarly();
+
+    error ZeroAddress();
 }

@@ -502,6 +502,13 @@ contract PolygonZkEVM is
         _;
     }
 
+    modifier isCommitedProofHash(uint64 finalNewBatch) {
+        if (proverCommitProofHash[finalNewBatch][msg.sender] == bytes32(0)) {
+            revert CommittedProofHash();
+        }
+        _;
+    }
+
     modifier commitProof(uint64 finalNewBatch) {
         if (
             sequencedBatches[finalNewBatch].blockNumber + _COMMIT_NUM <= block.number
@@ -509,6 +516,13 @@ contract PolygonZkEVM is
             revert SubmitProofEarly();
         }
 
+        _;
+    }
+
+    modifier isZeroAddress(address account) {
+        if ( account == address(0) ) {
+            revert ZeroAddress();
+        }
         _;
     }
 
@@ -830,7 +844,7 @@ contract PolygonZkEVM is
         bytes32 newLocalExitRoot,
         bytes32 newStateRoot,
         bytes calldata proof
-    ) internal isSlotAdapterEmpty isCommitProofHash(finalNewBatch) {
+    ) internal isSlotAdapterEmpty isCommitedProofHash(finalNewBatch) {
         bytes32 oldStateRoot;
         uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
 
@@ -886,12 +900,12 @@ contract PolygonZkEVM is
         uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
         // Verify proof
         if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
-            slotAdapter.punish(msg.sender);
+            slotAdapter.punish(msg.sender, ideDeposit);
             revert InvalidProof();
         }
 
         proofNum[msg.sender]++;
-        slotAdapter.distributeRewards(msg.sender, initNumBatch, finalNewBatch);
+        slotAdapter.distributeRewards(msg.sender, initNumBatch, finalNewBatch, ideDeposit);
     }
 
     /**
@@ -1236,14 +1250,14 @@ contract PolygonZkEVM is
     //////////////////
 
 
-    function setSlotAdapter(address _slotAdapter) public onlyAdmin {
-        require(_slotAdapter != address(0), "Set slotAdapter zero address");
-        slotAdapter = ISlotAdapter(_slotAdapter);
+    function setSlotAdapter(ISlotAdapter _slotAdapter) public onlyAdmin isZeroAddress(address(_slotAdapter)) {
+        // require(address(_slotAdapter) != address(0), "set 0 address");
+        slotAdapter = _slotAdapter;
     }
 
-    function setDeposit(address _ideDeposit) public onlyAdmin {
-        require(_ideDeposit != address(0), "Set slotAdapter zero address");
-        ideDeposit = IDeposit(_ideDeposit);
+    function setDeposit(IDeposit _ideDeposit) public onlyAdmin isZeroAddress(address(_ideDeposit)) {
+        // require(address(_ideDeposit) != address(0), "Set 0 address");
+        ideDeposit = _ideDeposit;
     }
 
     /**

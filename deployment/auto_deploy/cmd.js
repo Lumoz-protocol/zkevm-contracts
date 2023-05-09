@@ -1,5 +1,5 @@
 /* eslint-disable no-await-in-loop, no-use-before-define, no-continue, no-lonely-if, import/no-dynamic-require, global-require */
-/* eslint-disable no-console, no-inner-declarations, no-undef, import/no-unresolved, no-restricted-syntax */
+/* eslint-disable no-console, no-inner-declarations, no-undef, import/no-unresolved, no-restricted-syntax, camelcase */
 const hre = require('hardhat');
 const { ethers } = require('hardhat');
 const { spawn: _spawn } = require('child_process');
@@ -15,15 +15,17 @@ if (process.env.PG_URL === undefined || process.env.PG_URL === '') {
     throw new Error('PG_URL is empty');
 }
 
+const adapterABI = '[ { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" }, { "inputs": [], "name": "OnlyManager", "type": "error" }, { "inputs": [], "name": "OnlyOpenRegistrar", "type": "error" }, { "inputs": [], "name": "OnlyOpsideSlots", "type": "error" }, { "inputs": [], "name": "OnlySlotAdapter", "type": "error" }, { "inputs": [], "name": "OnlyZkEvmContract", "type": "error" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "_slotId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "_caller", "type": "address" }, { "indexed": true, "internalType": "address", "name": "_recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "_amount", "type": "uint256" } ], "name": "DistributeRewards", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "address", "name": "_manager", "type": "address" }, { "indexed": false, "internalType": "address", "name": "_opsideSlots", "type": "address" }, { "indexed": false, "internalType": "address", "name": "_globalPool", "type": "address" }, { "indexed": false, "internalType": "enum RewardDistributionType", "name": "_rewardDistribution", "type": "uint8" } ], "name": "Initialize", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint8", "name": "version", "type": "uint8" } ], "name": "Initialized", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "previousOwner", "type": "address" }, { "indexed": true, "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "OwnershipTransferred", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "_account", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "_amount", "type": "uint256" } ], "name": "PunishAmount", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "_slotId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "_to", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "_amount", "type": "uint256" }, { "indexed": false, "internalType": "enum RewardType", "name": "_rewardType", "type": "uint8" } ], "name": "RewardFromGlobalPool", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "_slotId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "_caller", "type": "address" }, { "indexed": true, "internalType": "address", "name": "_recipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "_amount", "type": "uint256" } ], "name": "Withdrawal", "type": "event" }, { "inputs": [ { "internalType": "uint64", "name": "_batchNum", "type": "uint64" } ], "name": "calcSlotRewatd", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_manager", "type": "address" } ], "name": "changeSlotManager", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_recipient", "type": "address" }, { "internalType": "uint64", "name": "_initNumBatch", "type": "uint64" }, { "internalType": "uint64", "name": "_finalNewBatch", "type": "uint64" }, { "internalType": "contract IDeposit", "name": "_iDeposit", "type": "address" } ], "name": "distributeRewards", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "getSlotId", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "globalPool", "outputs": [ { "internalType": "contract IGlobalPool", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "globalReward", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_manager", "type": "address" }, { "internalType": "address", "name": "_opsideSlots", "type": "address" }, { "internalType": "address", "name": "_globalPool", "type": "address" }, { "internalType": "enum RewardDistributionType", "name": "_rewardDistribution", "type": "uint8" } ], "name": "initialize", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "opsideSlots", "outputs": [ { "internalType": "contract IOpsideSlots", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "pause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "uint64", "name": "", "type": "uint64" } ], "name": "proverReward", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_recipient", "type": "address" }, { "internalType": "contract IDeposit", "name": "_iDeposit", "type": "address" } ], "name": "punish", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "punishAmount", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "renounceOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "rewardDistribution", "outputs": [ { "internalType": "enum RewardDistributionType", "name": "", "type": "uint8" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "rewards", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "setPunishAmount", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "enum RewardDistributionType", "name": "_rewardDistribution", "type": "uint8" } ], "name": "setRewardDistribution", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "_slotId", "type": "uint256" } ], "name": "setSlotId", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "_zkEvmContract", "type": "address" } ], "name": "setZKEvmContract", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "slotId", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "slotManager", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "slotReward", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "start", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "status", "outputs": [ { "internalType": "enum SlotStatus", "name": "", "type": "uint8" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "stop", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "newOwner", "type": "address" } ], "name": "transferOwnership", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "unpause", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "zkEvmContract", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" } ]';
+
 async function main() {
     const pgClient = await pg.pgConnect(process.env.PG_URL);
     try {
         const openzeppelin = path.join(__dirname, '../../.openzeppelin');
-        console.log(openzeppelin)
+        console.log(openzeppelin);
         await spawn(`rm -rf ${openzeppelin}`);
-        const transaction_hash = process.env.transaction_hash;
-        const reg_id = process.env.reg_id;
-        const chain_id = process.env.chain_id;
+        const { transaction_hash } = process.env;
+        const { reg_id } = process.env;
+        const { chain_id } = process.env;
         const requestRecordResp = await pgClient.query(
             'select admin_address, network_url '
             + 'from request_record '
@@ -39,7 +41,7 @@ async function main() {
         let sequencer;
         let aggregator;
         let bridgeAddrL2;
-        if (!fs.existsSync(regisDataDir)) {
+        if (!fs.existsSync(path.join(regisDataDir, './deploy_output.json'))) {
             fs.mkdirSync(regisDataDir);
             fs.copyFileSync(
                 path.join(__dirname, './deploy_parameters.json.example'),
@@ -118,18 +120,24 @@ async function main() {
             console.log('*** funding done ***');
             console.log('--------------------------------------------');
         } else {
-            outputJson =  require(path.join(regisDataDir, './deploy_output.json'));
+            outputJson = require(path.join(regisDataDir, './deploy_output.json'));
             sequencer = await createRandomWallet(regisDataDir, 'sequencer');
             aggregator = await createRandomWallet(regisDataDir, 'aggregator');
             const genesisFile = JSON.parse(fs.readFileSync(path.join(regisDataDir, './genesis.json')).toString());
             bridgeAddrL2 = genesisFile.genesis[3].address;
         }
 
-        console.log(outputJson)
+        console.log(outputJson);
+
+        // set zkEVM contract addr for adapter
+        const adapterContract = await ethers.getContractAt(adapterABI, process.env.adapter);
+        const adapterOwner = new ethers.Wallet(process.env.ADAPTER_OWNER_PRIVKEY);
+        await adapterContract.connect(adapterOwner).setZKEvmContract(outputJson.polygonZkEVMAddress);
+
         const depoly_zkrollup = path.join(__dirname, 'build/depoly_zkrollup');
         const depoly_zkrollup_config = path.join(__dirname, 'build/config.json');
         const cmd = `${depoly_zkrollup} -c ${depoly_zkrollup_config} --id ${reg_id} --poe_addr ${outputJson.polygonZkEVMAddress} --exit_mana_addr ${outputJson.polygonZkEVMGlobalExitRootAddress} --gen_blocknumber ${outputJson.deploymentBlockNumber} --sequencer ${sequencer.address}  --aggregator ${aggregator.address} --bridge_addr ${outputJson.polygonZkEVMBridgeAddress} --l2bridge_addrs ${bridgeAddrL2}`;
-        console.log('cmd: ', cmd)
+        console.log('cmd: ', cmd);
         await spawn(cmd);
     } catch (error) {
         throw new Error(error);

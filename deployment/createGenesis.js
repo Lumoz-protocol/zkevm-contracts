@@ -7,7 +7,6 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { argv } = require('yargs');
 
 const DEFAULT_MNEMONIC = 'test test test test test test test test test test test junk';
-process.env.HARDHAT_NETWORK = 'hardhat';
 process.env.MNEMONIC = argv.test ? DEFAULT_MNEMONIC : process.env.MNEMONIC;
 const { ethers, upgrades } = require('hardhat');
 const {
@@ -16,11 +15,15 @@ const {
 
 const { deployPolygonZkEVMDeployer, create2Deployment } = require('./helpers/deployment-helpers');
 
-// const deployParametersPath = argv.input ? argv.input : './deploy_parameters.json';
-// const deployParameters = require(deployParametersPath);
+/*
+ * const deployParametersPath = argv.input ? argv.input : './deploy_parameters.json';
+ * const deployParameters = require(deployParametersPath);
+ */
 
-// const outPath = argv.out ? argv.out : './genesis.json';
-// const pathOutputJson = path.join(__dirname, outPath);
+/*
+ * const outPath = argv.out ? argv.out : './genesis.json';
+ * const pathOutputJson = path.join(__dirname, outPath);
+ */
 
 /*
  * bytes32 internal constant _ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
@@ -28,7 +31,6 @@ const { deployPolygonZkEVMDeployer, create2Deployment } = require('./helpers/dep
  */
 const _ADMIN_SLOT = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
 const _IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
-
 
 const createGenesis = async (regisDataDir, deployParameters) => {
     // Constant variables
@@ -146,8 +148,8 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     }
 
     // Assert admin address
-    const PROXY_ADMIN_SLOT = "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103"
-    console.log( "0x" + (await ethers.provider.getStorageAt(polygonZkEVMGlobalExitRootL2.address, PROXY_ADMIN_SLOT)).substring(26));
+    const PROXY_ADMIN_SLOT = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103';
+    console.log(`0x${(await ethers.provider.getStorageAt(polygonZkEVMGlobalExitRootL2.address, PROXY_ADMIN_SLOT)).substring(26)}`);
     // console.log('polygonZkEVMGlobalExitRootL2: ', polygonZkEVMGlobalExitRootL2);
     console.log('polygonZkEVMGlobalExitRootL2.address: ', polygonZkEVMGlobalExitRootL2.address);
     console.log(await upgrades.erc1967.getAdminAddress(polygonZkEVMGlobalExitRootL2.address), await upgrades.erc1967.getAdminAddress(proxyBridgeAddress), proxyAdminAddress);

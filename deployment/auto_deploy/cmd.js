@@ -41,13 +41,15 @@ async function main() {
         let sequencer;
         let aggregator;
         let bridgeAddrL2;
-        if (!fs.existsSync(path.join(regisDataDir, './deploy_output.json'))) {
+        if (!fs.existsSync(regisDataDir)) {
             fs.mkdirSync(regisDataDir);
             fs.copyFileSync(
                 path.join(__dirname, './deploy_parameters.json.example'),
                 path.join(regisDataDir, './deploy_parameters.json'),
             );
+        }
 
+        if (!fs.existsSync(path.join(regisDataDir, './deploy_output.json'))) {
             // load claimTxManager Account
             const claimTxManager = new ethers.Wallet(process.env.CLAIM_TX_MANAGER_PRIVKEY);
             await claimTxManager.encrypt('testonly').then((json) => {
@@ -93,7 +95,7 @@ async function main() {
             console.log('*** createGenesis done ***');
             console.log('--------------------------------------------');
             // hre.changeNetwork(process.env.HARDHAT_NETWORK);
-            hre.changeNetwork('opside');
+            hre.changeNetwork('opsideTestnet');
             const funder = new ethers.Wallet(process.env.FUNDER_PRIVKEY);
             console.log('*** start deploy zkEVM deployer ***');
             const currProvider = ethers.provider;
@@ -164,12 +166,12 @@ async function createRandomWallet(regisDataDir, role) {
 
 async function fundWallet(funder, receiver, provider) {
     const currBalance = await receiver.connect(provider).getBalance();
-    const minBalance = ethers.utils.parseEther('1');
+    const minBalance = ethers.utils.parseEther('10');
     if (currBalance.lt(minBalance)) {
         const params = {
             to: receiver.address,
-            value: ethers.utils.parseEther('2'),
-            gasPrice: ethers.utils.parseUnits('200', 'gwei'),
+            value: ethers.utils.parseEther('100'),
+            gasPrice: ethers.utils.parseUnits('1100', 'gwei'),
         };
         const tx = await funder.connect(provider).sendTransaction(params);
         await tx.wait();

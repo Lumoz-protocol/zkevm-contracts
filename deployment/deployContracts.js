@@ -6,8 +6,8 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-const adapter = process.env.adapter;
-const deposit = process.env.deposit;
+const { adapter } = process.env;
+const { deposit } = process.env;
 
 const { create2Deployment } = require('./helpers/deployment-helpers');
 
@@ -182,7 +182,7 @@ const deployContracts = async (regisDataDir, deployParameters) => {
     const deployTransactionBridge = (polygonZkEVMBridgeFactory.getDeployTransaction()).data;
     const dataCallNull = null;
     // Mandatory to override the gasLimit since the estimation with create are mess up D:
-    const overrideGasLimit = ethers.BigNumber.from(5500000);
+    const overrideGasLimit = ethers.BigNumber.from(5400000);
     const [bridgeImplementationAddress, isBridgeImplDeployed] = await create2Deployment(
         zkEVMDeployerContract,
         salt,
@@ -547,4 +547,3 @@ const deployContracts = async (regisDataDir, deployParameters) => {
 module.exports = {
     deployContracts,
 };
-

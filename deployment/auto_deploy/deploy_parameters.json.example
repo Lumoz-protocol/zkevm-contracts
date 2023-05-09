@@ -18,7 +18,7 @@
     "claimTxManager":"",
     "zkEVMDeployerAddress":"",
     "deployerPvtKey": "",
-    "maxFeePerGas":"200",
-    "maxPriorityFeePerGas":"5",
+    "maxFeePerGas":"1100",
+    "maxPriorityFeePerGas":"1100",
     "multiplierGas": ""
 }

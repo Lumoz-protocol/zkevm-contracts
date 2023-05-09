@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
+const adapter = process.env.adapter;
+const deposit = process.env.deposit;
+
 const { create2Deployment } = require('./helpers/deployment-helpers');
 
 const pathOZUpgradability = path.join(__dirname, `../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
@@ -446,6 +449,17 @@ const deployContracts = async (regisDataDir, deployParameters) => {
     console.log('networkName:', await polygonZkEVMContract.networkName());
     console.log('owner:', await polygonZkEVMContract.owner());
     console.log('forkID:', await polygonZkEVMContract.forkID());
+    console.log('slotAdapter:', await polygonZkEVMContract.slotAdapter());
+    console.log('ideDeposit:', await polygonZkEVMContract.ideDeposit());
+
+    polygonZkEVMContract.connect(deployer);
+    if (adapter !== await polygonZkEVMContract.slotAdapter()) {
+        await polygonZkEVMContract.setSlotAdapter(adapter);
+    }
+
+    if (deposit !== await polygonZkEVMContract.ideDeposit()) {
+        await polygonZkEVMContract.setDeposit(deposit);
+    }
 
     // Assert admin address
     expect(await upgrades.erc1967.getAdminAddress(precalculateZkevmAddress)).to.be.equal(proxyAdminAddress);

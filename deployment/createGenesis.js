@@ -309,7 +309,7 @@ const createGenesis = async (regisDataDir, deployParameters) => {
     genesis.push({
         accountName: 'claimTxManager',
         balance: '100000000000000000000',
-        nonce: 0,
+        nonce: '0',
         address: deployParameters.claimTxManager,
     });
 

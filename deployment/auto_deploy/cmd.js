@@ -10,7 +10,6 @@ const pg = require('./utils/pg');
 const { createGenesis } = require('../createGenesis');
 const { deployDeployer } = require('../deployPolygonZKEVMDeployer');
 const { deployContracts } = require('../deployContracts');
-const { deployContracts } = require('../deployContracts');
 
 
 if (process.env.PG_URL === undefined || process.env.PG_URL === '') {

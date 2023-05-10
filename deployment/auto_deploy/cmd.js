@@ -10,6 +10,7 @@ const pg = require('./utils/pg');
 const { createGenesis } = require('../createGenesis');
 const { deployDeployer } = require('../deployPolygonZKEVMDeployer');
 const { deployContracts } = require('../deployContracts');
+const depositABI = require('../abi/IDEDeposit.json');
 
 
 if (process.env.PG_URL === undefined || process.env.PG_URL === '') {
@@ -160,16 +161,28 @@ async function createRandomWallet(regisDataDir, role) {
 
 async function fundWallet(funder, receiver, provider) {
     const currBalance = await receiver.connect(provider).getBalance();
-    const minBalance = ethers.utils.parseEther('10');
-    if (currBalance.lt(minBalance)) {
+    const minBalance = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '100', 'ether');
+    const depositAmount = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '1000000', 'ether');
+    const amount = minBalance.add(depositAmount);
+    if (currBalance.lt(amount)) {
         const params = {
             to: receiver.address,
-            value: ethers.utils.parseEther('100'),
+            value: amount,
             gasPrice: ethers.utils.parseUnits('1100', 'gwei'),
         };
         const tx = await funder.connect(provider).sendTransaction(params);
         await tx.wait();
+
+        // deposit
+        const depositContract = new ethers.Contract(process.env.DEPOSIT_CONTRACT, depositABI.abi, currentProvider);
+        const depositOwner = new ethers.Wallet(process.env.DEPOSIT_OWNER, currentProvider);
+        const depositTx = await depositContract.connect(depositOwner).deposit({value: depositAmount});
+        await depositTx.wait();
+        console.log('\n#######################');
+        console.log('deposit : ', depositTx);
     }
+
+
 }
 
 function spawn(command) {

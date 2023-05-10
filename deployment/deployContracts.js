@@ -12,6 +12,7 @@ const { deposit } = process.env;
 const { create2Deployment } = require('./helpers/deployment-helpers');
 
 const pathOZUpgradability = path.join(__dirname, `../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
+const slotAdapterABI = require('./abi/SlotAdapter.json');
 
 const deployContracts = async (regisDataDir, deployParameters) => {
     const genesis = JSON.parse(fs.readFileSync(path.join(regisDataDir, './genesis.json')).toString());
@@ -515,6 +516,14 @@ const deployContracts = async (regisDataDir, deployParameters) => {
     console.log('#######################');
     console.log('minDelayTimelock:', await timelockContract.getMinDelay());
     console.log('polygonZkEVM:', await timelockContract.polygonZkEVM());
+
+    
+    // set zkEVM contract addr for adapter
+    const adapterContract = new ethers.Contract(process.env.adapter, slotAdapterABI.abi, currentProvider);
+    const adapterOwner = new ethers.Wallet(process.env.ADAPTER_OWNER_PRIVKEY);
+    const tx = await adapterContract.connect(adapterOwner).setZKEvmContract(outputJson.polygonZkEVMAddress);
+    console.log('\n#######################');
+    console.log('adapter setZKEvmContract: ', tx);
 
     const outputJson = {
         polygonZkEVMAddress: polygonZkEVMContract.address,

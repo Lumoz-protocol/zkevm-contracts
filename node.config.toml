@@ -2,7 +2,7 @@ IsTrustedSequencer = true
 
 [Log]
 Environment = "development" # "production" or "development"
-Level = "info"
+Level = "debug"
 Outputs = ["stderr"]
 
 [StateDB]
@@ -32,11 +32,12 @@ PollMinAllowedGasPriceInterval = "15s"
 	MaxConns = 200
 
 [Etherman]
-URL = "http://zkevm-mock-l1-network:8545"
-PoEAddr = "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
-MaticAddr = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-GlobalExitRootManagerAddr = "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
-L1ChainID = 1337
+URL = "http://159.135.192.196:8545"
+PoEAddr = "0x2De72e7E01AA2E715aEbd211169EbE14Dfdd4f7c"
+MaticAddr = "0x359b74eBC1177a01F4737BcEB6a90123a867b93A"
+GlobalExitRootManagerAddr = "0xbC06921042219DC43E98dC520dD624C46CfeCd9d"
+L1ChainID = 51178
+GetForksStartBlkNum = 19384
 MultiGasProvider = false
 	[Etherscan]
 		ApiKey = ""
@@ -57,7 +58,7 @@ EnableL2SuggestedGasPricePolling = true
 [Synchronizer]
 SyncInterval = "1s"
 SyncChunkSize = 100
-GenBlockNumber = 67
+GenBlockNumber = 19384
 TrustedSequencerURL = ""
 
 [Sequencer]
@@ -67,7 +68,7 @@ LastBatchVirtualizationTimeMaxWaitPeriod = "10s"
 BlocksAmountForTxsToBeDeleted = 100
 FrequencyToCheckTxsForDelete = "12h"
 MaxTxsPerBatch = 150
-MaxBatchBytesSize = 150000
+MaxBatchBytesSize = 129848
 MaxCumulativeGasUsed = 30000000
 MaxKeccakHashes = 468
 MaxPoseidonHashes = 279620
@@ -107,7 +108,7 @@ MaxTxSizeForL1 = 131072
 [Aggregator]
 Host = "0.0.0.0"
 Port = 50081
-ForkId = 2
+ForkId = 4
 RetryTime = "5s"
 VerifyProofInterval = "30s"
 TxProfitabilityCheckerType = "acceptall"
@@ -118,6 +119,7 @@ CleanupLockedProofsInterval = "2m"
 GeneratingProofCleanupThreshold = "10m"
 
 [EthTxManager]
+GasPrice = 1100000000000
 ForcedGas = 0
 PrivateKeys = [
 	{Path = "/pk/sequencer.keystore", Password = "testonly"},
@@ -145,11 +147,11 @@ ProfilingPort = 6060
 ProfilingEnabled = true
 
 [EventLog]
-        [EventLog.DB]
-        User = "event_user"
-        Password = "event_password"
-        Name = "event_db"
-        Host = "zkevm-event-db"
-        Port = "5432"
-        EnableLog = false
-        MaxConns = 200
+	[EventLog.DB]
+	User = "event_user"
+	Password = "event_password"
+	Name = "event_db"
+	Host = "zkevm-event-db"
+	Port = "5432"
+	EnableLog = false
+	MaxConns = 200

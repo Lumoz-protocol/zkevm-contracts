@@ -1,5 +1,5 @@
 [Log]
-Level = "info"
+Level = "debug"
 Outputs = ["stdout"]
 
 [SyncDB]
@@ -16,7 +16,7 @@ FrequencyToMonitorTxs = "1s"
 PrivateKey = {Path = "/pk/keystore.claimtxmanager", Password = "testonly"}
 
 [Etherman]
-L1URL = "http://zkevm-mock-l1-network:8545"
+L1URL = "http://159.135.192.196:8545"
 L2URLs = ["http://zkevm-json-rpc:8123"]
 
 [Synchronizer]
@@ -35,7 +35,6 @@ DefaultPageLimit = 25
 MaxPageLimit = 100
 BridgeVersion = "v1"
     [BridgeServer.DB]
-    Database = "postgres"
     User = "test_user"
     Password = "test_password"
     Name = "test_db"
@@ -44,10 +43,10 @@ BridgeVersion = "v1"
     MaxConns = 20
 
 [NetworkConfig]
-GenBlockNumber = 1
-PoEAddr = "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
-BridgeAddr = "0xAD1eA25D1133095d20D5C3f269ed887aC0a2496C"
-GlobalExitRootManAddr = "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
-MaticAddr = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-L2BridgeAddrs = ["0xfC5b0c5F677a3f3E29DB2e98c9eD455c7ACfCf03"]
-L1ChainID = 1337
+GenBlockNumber = 19384
+PoEAddr = "0x2De72e7E01AA2E715aEbd211169EbE14Dfdd4f7c"
+BridgeAddr = "0xDa99b77Df6631d5695E86e00e62aeBE53A673f57"
+GlobalExitRootManAddr = "0xbC06921042219DC43E98dC520dD624C46CfeCd9d"
+MaticAddr = "0x359b74eBC1177a01F4737BcEB6a90123a867b93A"
+L2BridgeAddrs = ["0x5f0f22E631d742E4aEC7F6eeCf11066524D0aEdB"]
+L1ChainID = 51178 

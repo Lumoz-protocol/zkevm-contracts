@@ -6,6 +6,7 @@ require('@nomiclabs/hardhat-etherscan');
 require('@openzeppelin/hardhat-upgrades');
 require('hardhat-dependency-compiler');
 require('hardhat-contract-sizer');
+require('hardhat-change-network');
 
 const DEFAULT_MNEMONIC = 'test test test test test test test test test test test junk';
 

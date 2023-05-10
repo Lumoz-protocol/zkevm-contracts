@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
+const { adapter } = process.env;
+const { deposit } = process.env;
+
 const { create2Deployment } = require('./helpers/deployment-helpers');
 
 const pathOZUpgradability = path.join(__dirname, `../.openzeppelin/${process.env.HARDHAT_NETWORK}.json`);
@@ -179,7 +182,7 @@ const deployContracts = async (regisDataDir, deployParameters) => {
     const deployTransactionBridge = (polygonZkEVMBridgeFactory.getDeployTransaction()).data;
     const dataCallNull = null;
     // Mandatory to override the gasLimit since the estimation with create are mess up D:
-    const overrideGasLimit = ethers.BigNumber.from(5500000);
+    const overrideGasLimit = ethers.BigNumber.from(5400000);
     const [bridgeImplementationAddress, isBridgeImplDeployed] = await create2Deployment(
         zkEVMDeployerContract,
         salt,
@@ -446,6 +449,17 @@ const deployContracts = async (regisDataDir, deployParameters) => {
     console.log('networkName:', await polygonZkEVMContract.networkName());
     console.log('owner:', await polygonZkEVMContract.owner());
     console.log('forkID:', await polygonZkEVMContract.forkID());
+    console.log('slotAdapter:', await polygonZkEVMContract.slotAdapter());
+    console.log('ideDeposit:', await polygonZkEVMContract.ideDeposit());
+
+    polygonZkEVMContract.connect(deployer);
+    if (adapter !== await polygonZkEVMContract.slotAdapter()) {
+        await polygonZkEVMContract.setSlotAdapter(adapter);
+    }
+
+    if (deposit !== await polygonZkEVMContract.ideDeposit()) {
+        await polygonZkEVMContract.setDeposit(deposit);
+    }
 
     // Assert admin address
     expect(await upgrades.erc1967.getAdminAddress(precalculateZkevmAddress)).to.be.equal(proxyAdminAddress);
@@ -491,7 +505,7 @@ const deployContracts = async (regisDataDir, deployParameters) => {
             timelockContract.address,
         );
         // Transfer ownership of the proxyAdmin to timelock
-        // TODO: wrong caller
+
         // await upgrades.admin.transferProxyAdminOwnership(timelockContract.address);
         await (await upgrades.admin.getInstance()).connect(deployer).transferOwnership(timelockContract.address);
     }
@@ -533,4 +547,3 @@ const deployContracts = async (regisDataDir, deployParameters) => {
 module.exports = {
     deployContracts,
 };
-

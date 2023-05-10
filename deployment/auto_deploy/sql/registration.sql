@@ -4,6 +4,7 @@ CREATE TABLE registration(
     value  varchar(100) NOT NULL,
     manager varchar(50) NOT NULL,
     adapter varchar(50) default '0x0000000000000000000000000000000000000000',
+    deposit varchar(50) default '0x0000000000000000000000000000000000000000',
     chain_id integer,
     slot_id BIGINT,
     status SMALLINT default 0,

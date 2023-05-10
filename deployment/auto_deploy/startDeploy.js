@@ -26,14 +26,14 @@ async function main() {
             await spawn(`rm -rf ${openzeppelin}`);
             // await spawn(`rm -rf /Users/marius/work/opside/zkevm-contracts/cache`);
             const regisResponse = await pgClient.query(
-                'select id, reg_id, chain_id, transaction_hash '
+                'select id, reg_id, chain_id, transaction_hash, adapter, deposit '
                 + 'from registration '
                 + 'where status = 3 order by id',
             );
 
             if (regisResponse.rowCount > 0) {
                 for (let i = 0; i < regisResponse.rowCount; i++) {
-                    await spawn(`transaction_hash=${regisResponse.rows[i].transaction_hash} reg_id=${regisResponse.rows[i].reg_id} chain_id=${regisResponse.rows[i].chain_id} npx hardhat run ${cmd}`);
+                    await spawn(`transaction_hash=${regisResponse.rows[i].transaction_hash} reg_id=${regisResponse.rows[i].reg_id} chain_id=${regisResponse.rows[i].chain_id} adapter=${regisResponse.rows[i].adapter} deposit=${regisResponse.rows[i].deposit} npx hardhat run ${cmd}`);
                     // TODO: update status in registration table when child process normally exits
                     await pgClient.query(
                         'update registration set status = 4 '

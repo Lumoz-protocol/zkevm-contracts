@@ -520,8 +520,8 @@ const deployContracts = async (regisDataDir, deployParameters) => {
     
     // set zkEVM contract addr for adapter
     const adapterContract = new ethers.Contract(process.env.adapter, slotAdapterABI.abi, currentProvider);
-    const adapterOwner = new ethers.Wallet(process.env.ADAPTER_OWNER_PRIVKEY);
-    const tx = await adapterContract.connect(adapterOwner).setZKEvmContract(outputJson.polygonZkEVMAddress);
+    const adapterOwner = new ethers.Wallet(process.env.ADAPTER_OWNER_PRIVKEY, currentProvider);
+    const tx = await adapterContract.connect(adapterOwner).setZKEvmContract(polygonZkEVMContract.address);
     console.log('\n#######################');
     console.log('adapter setZKEvmContract: ', tx);
 
@@ -546,6 +546,7 @@ const deployContracts = async (regisDataDir, deployParameters) => {
         salt,
         version,
     };
+    
     fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
 
     // Remove ongoing deployment

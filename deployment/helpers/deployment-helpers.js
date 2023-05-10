@@ -3,7 +3,7 @@
 const { expect } = require('chai');
 const { ethers } = require('hardhat');
 
-const gasPriceKeylessDeployment = '100'; // 100 gweis
+const gasPriceKeylessDeployment = '1100'; // 100 gweis
 
 async function deployPolygonZkEVMDeployer(deployerAddress, signer) {
     const PolgonZKEVMDeployerFactory = await ethers.getContractFactory('PolygonZkEVMDeployer', signer);
@@ -24,6 +24,10 @@ async function deployPolygonZkEVMDeployer(deployerAddress, signer) {
         data: deployTxZKEVMDeployer,
     };
 
+    if (process.env.HARDHAT_NETWORK !== 'hardhat') {
+        tx.chainId = (await signer.provider.getNetwork()).chainId;
+    }
+    
     const signature = {
         v: 27,
         r: '0x5ca1ab1e0', // Equals 0x00000000000000000000000000000000000000000000000000000005ca1ab1e0
@@ -90,6 +94,7 @@ async function create2Deployment(polgonZKEVMDeployerContract, salt, deployTransa
                 salt,
                 deployTransaction,
             );
+            
             populatedTransaction.gasLimit = ethers.BigNumber.from(hardcodedGasLimit);
             await (await deployer.sendTransaction(populatedTransaction)).wait();
         } else {

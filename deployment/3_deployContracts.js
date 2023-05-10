@@ -117,11 +117,9 @@ async function main() {
     } else {
         [deployer] = (await ethers.getSigners());
     }
-
     // Load zkEVM deployer
     const PolgonZKEVMDeployerFactory = await ethers.getContractFactory('PolygonZkEVMDeployer', deployer);
     const zkEVMDeployerContract = PolgonZKEVMDeployerFactory.attach(zkEVMDeployerAddress);
-
     // check deployer is the owner of the deployer
     if (await deployer.provider.getCode(zkEVMDeployerContract.address) === '0x') {
         throw new Error('zkEVM deployer contract is not deployed');

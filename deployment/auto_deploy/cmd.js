@@ -118,7 +118,7 @@ async function main() {
 
             console.log('*** start fund sequencer & aggregator ***');
             await fundWallet(funder, sequencer, currProvider);
-            await fundWallet(funder, aggregator, currProvider);
+            await fundWallet(funder, aggregator, currProvider, true);
             console.log('*** funding done ***');
             console.log('--------------------------------------------');
         } else {
@@ -159,10 +159,13 @@ async function createRandomWallet(regisDataDir, role) {
     return wallet;
 }
 
-async function fundWallet(funder, receiver, provider) {
+async function fundWallet(funder, receiver, provider, prover = false) {
     const currBalance = await receiver.connect(provider).getBalance();
     const minBalance = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '100', 'ether');
-    const depositAmount = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '1000000', 'ether');
+    let depositAmount  = 0;
+    if (fundWallet) {
+        depositAmount = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '1000000', 'ether');
+    }
     const amount = minBalance.add(depositAmount);
     if (currBalance.lt(amount)) {
         const params = {
@@ -172,14 +175,15 @@ async function fundWallet(funder, receiver, provider) {
         };
         const tx = await funder.connect(provider).sendTransaction(params);
         await tx.wait();
-
-        // deposit
-        const depositContract = new ethers.Contract(process.env.DEPOSIT_CONTRACT, depositABI.abi, currentProvider);
-        const depositOwner = new ethers.Wallet(process.env.DEPOSIT_OWNER, currentProvider);
-        const depositTx = await depositContract.connect(depositOwner).deposit({value: depositAmount});
-        await depositTx.wait();
-        console.log('\n#######################');
-        console.log('deposit : ', depositTx);
+        if (fundWallet) {
+            // deposit
+            const depositContract = new ethers.Contract(process.env.DEPOSIT_CONTRACT, depositABI.abi, currentProvider);
+            const depositOwner = new ethers.Wallet(process.env.DEPOSIT_OWNER, currentProvider);
+            const depositTx = await depositContract.connect(depositOwner).deposit({value: depositAmount});
+            await depositTx.wait();
+            console.log('\n#######################');
+            console.log('deposit : ', depositTx);
+        }
     }
 
 

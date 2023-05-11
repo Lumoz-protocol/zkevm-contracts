@@ -125,7 +125,7 @@ async function main() {
             fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
             // Remove ongoing deployment
             fs.unlinkSync(pathOngoingDeploymentJson);
-            
+
             console.log('*** funding done ***');
             console.log('--------------------------------------------');
         } else {
@@ -144,7 +144,7 @@ async function main() {
         console.log('cmd: ', cmd);
         await spawn(cmd);
     } catch (error) {
-        throw new Error(error);
+        console.log('cmd: ', error)
     }
 
     pgClient.end();

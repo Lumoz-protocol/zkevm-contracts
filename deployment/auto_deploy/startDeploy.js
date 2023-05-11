@@ -42,7 +42,7 @@ async function main() {
                 }
             }
         } catch (error) {
-            throw new Error(error);
+            console.log('main: ', error)
         }
         // sleep
         // eslint-disable-next-line no-promise-executor-return

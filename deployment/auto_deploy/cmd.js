@@ -107,6 +107,8 @@ async function main() {
             console.log('--------------------------------------------');
 
             console.log('*** start deploy zkEVM contracts ***');
+            const pathOutputJson = path.join(regisDataDir, './deploy_output.json');
+            const pathOngoingDeploymentJson = path.join(regisDataDir, './deploy_ongoing.json');
             outputJson = await deployContracts(regisDataDir, deployParams);
             await pgClient.query(
                 'update request_record set zkrollup_contract_status = 2, '
@@ -119,6 +121,11 @@ async function main() {
             console.log('*** start fund sequencer & aggregator ***');
             await fundWallet(funder, sequencer, currProvider);
             await fundWallet(funder, aggregator, currProvider, true);
+
+            fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
+            // Remove ongoing deployment
+            fs.unlinkSync(pathOngoingDeploymentJson);
+            
             console.log('*** funding done ***');
             console.log('--------------------------------------------');
         } else {

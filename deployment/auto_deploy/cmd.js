@@ -112,7 +112,7 @@ async function main() {
             outputJson = await deployContracts(regisDataDir, deployParams);
             await pgClient.query(
                 'update request_record set zkrollup_contract_status = 2, '
-                + `bridge_contract_address = array['${outputJson.polygonZkEVMBridgeAddress}', '${bridgeAddrL2}'] `
+                + `bridge_contract_address = '${outputJson.polygonZkEVMBridgeAddress}, ${bridgeAddrL2}' `
                 + `where transaction_hash = '${transaction_hash}'`,
             );
             console.log('*** deploy contracts done ***');

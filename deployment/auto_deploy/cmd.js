@@ -161,10 +161,10 @@ async function createRandomWallet(regisDataDir, role) {
 
 async function fundWallet(funder, receiver, provider, prover = false) {
     const currBalance = await receiver.connect(provider).getBalance();
-    const minBalance = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '100', 'ether');
+    const minBalance = ethers.utils.parseUnits('100', 'ether');
     let depositAmount  = 0;
     if (fundWallet) {
-        depositAmount = ethers.utils.parseUnits(process.env.DEPOSIT_AMOUNT | '1000000', 'ether');
+        depositAmount = ethers.utils.parseUnits(`${process.env.DEPOSIT_AMOUNT | 1000000}`, 'ether');
     }
     const amount = minBalance.add(depositAmount);
     if (currBalance.lt(amount)) {
@@ -177,9 +177,9 @@ async function fundWallet(funder, receiver, provider, prover = false) {
         await tx.wait();
         if (fundWallet) {
             // deposit
-            const depositContract = new ethers.Contract(process.env.DEPOSIT_CONTRACT, depositABI.abi, currentProvider);
-            const depositOwner = new ethers.Wallet(process.env.DEPOSIT_OWNER, currentProvider);
-            const depositTx = await depositContract.connect(depositOwner).deposit({value: depositAmount});
+            const depositContract = new ethers.Contract(process.env.DEPOSIT_CONTRACT, depositABI.abi, provider);
+            const depositOwner = new ethers.Wallet(process.env.DEPOSIT_OWNER, provider);
+            const depositTx = await depositContract.connect(depositOwner).deposit({value: depositAmount, gasPrice: ethers.utils.parseUnits('1100', 'gwei')});
             await depositTx.wait();
             console.log('\n#######################');
             console.log('deposit : ', depositTx);

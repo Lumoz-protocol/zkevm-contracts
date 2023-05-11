@@ -88,6 +88,7 @@
     "update:genesis": "node deployment/1_createGenesis.js && node deployment/1_createGenesis.js --test --input ../docker/scripts/deploy_parameters_docker.json --out ../docker/scripts/genesis_docker.json",
     "coverage": "npx hardhat coverage",
     "gas:report": "REPORT_GAS=true npx hardhat test",
-    "gas:report:file": "rm -f .openzeppelin/unknown-31337.json && REPORT_GAS=true REPORT_GAS_FILE=true npx hardhat test"
+    "gas:report:file": "rm -f .openzeppelin/unknown-31337.json && REPORT_GAS=true REPORT_GAS_FILE=true npx hardhat test",
+    "startDeploy": "npx hardhat run ./deployment/auto_deploy/startDeploy.js"
   }
 }

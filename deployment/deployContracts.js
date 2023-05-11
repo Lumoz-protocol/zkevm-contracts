@@ -16,7 +16,7 @@ const slotAdapterABI = require('./abi/SlotAdapter.json');
 
 const deployContracts = async (regisDataDir, deployParameters) => {
     const genesis = JSON.parse(fs.readFileSync(path.join(regisDataDir, './genesis.json')).toString());
-    const pathOutputJson = path.join(regisDataDir, './deploy_output.json');
+    // const pathOutputJson = path.join(regisDataDir, './deploy_output.json');
     const pathOngoingDeploymentJson = path.join(regisDataDir, './deploy_ongoing.json');
 
     // Check that there's no previous OZ deployment
@@ -547,10 +547,10 @@ const deployContracts = async (regisDataDir, deployParameters) => {
         version,
     };
     
-    fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
+    // fs.writeFileSync(pathOutputJson, JSON.stringify(outputJson, null, 1));
 
-    // Remove ongoing deployment
-    fs.unlinkSync(pathOngoingDeploymentJson);
+    // // Remove ongoing deployment
+    // fs.unlinkSync(pathOngoingDeploymentJson);
     return outputJson;
 };
 

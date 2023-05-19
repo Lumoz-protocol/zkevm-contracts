@@ -681,10 +681,6 @@ contract PolygonZkEVM is
             lastForceBatchSequenced = currentLastForceBatchSequenced;
 
 
-
-        // Consolidate pending state if possible
-        _tryConsolidatePendingState();
-
         // Update global exit root if there are new deposits
         bridgeAddress.updateGlobalExitRoot();
 
@@ -741,7 +737,6 @@ contract PolygonZkEVM is
 
     /**
      * @notice Allows an aggregator to verify multiple batches
-     * @param pendingStateNum Init pending state, 0 if consolidated state is used
      * @param initNumBatch Batch which the aggregator starts the verification
      * @param finalNewBatch Last batch aggregator intends to verify
      * @param newLocalExitRoot  New local exit root once the batch is processed
@@ -749,19 +744,16 @@ contract PolygonZkEVM is
      * @param proof fflonk proof
      */
     function verifyBatches(
-        uint64 pendingStateNum,
         uint64 initNumBatch,
         uint64 finalNewBatch,
         bytes32 newLocalExitRoot,
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-
         if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
             revert ExceedMaxVerifyBatches();
         }
         _verifyAndRewardBatches(
-            pendingStateNum,
             initNumBatch,
             finalNewBatch,
             newLocalExitRoot,
@@ -783,55 +775,8 @@ contract PolygonZkEVM is
         emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
     }
 
-    // /**
-    //  * @notice Allows an aggregator to verify multiple batches
-    //  * @param pendingStateNum Init pending state, 0 if consolidated state is used
-    //  * @param initNumBatch Batch which the aggregator starts the verification
-    //  * @param finalNewBatch Last batch aggregator intends to verify
-    //  * @param newLocalExitRoot  New local exit root once the batch is processed
-    //  * @param newStateRoot New State root once the batch is processed
-    //  * @param proof fflonk proof
-    //  */
-    // function verifyBatchesTrustedAggregator(
-    //     uint64 pendingStateNum,
-    //     uint64 initNumBatch,
-    //     uint64 finalNewBatch,
-    //     bytes32 newLocalExitRoot,
-    //     bytes32 newStateRoot,
-    //     bytes calldata proof
-    // ) external onlyTrustedAggregator {
-    //     _verifyAndRewardBatches(
-    //         pendingStateNum,
-    //         initNumBatch,
-    //         finalNewBatch,
-    //         newLocalExitRoot,
-    //         newStateRoot,
-    //         proof
-    //     );
-
-    //     // Consolidate state
-    //     lastVerifiedBatch = finalNewBatch;
-    //     batchNumToStateRoot[finalNewBatch] = newStateRoot;
-
-    //     // Clean pending state if any
-    //     if (lastPendingState > 0) {
-    //         lastPendingState = 0;
-    //         lastPendingStateConsolidated = 0;
-    //     }
-
-    //     // Interact with globalExitRootManager
-    //     globalExitRootManager.updateExitRoot(newLocalExitRoot);
-
-    //     emit VerifyBatchesTrustedAggregator(
-    //         finalNewBatch,
-    //         newStateRoot,
-    //         msg.sender
-    //     );
-    // }
-
     /**
      * @notice Verify and reward batches internal function
-     * @param pendingStateNum Init pending state, 0 if consolidated state is used
      * @param initNumBatch Batch which the aggregator starts the verification
      * @param finalNewBatch Last batch aggregator intends to verify
      * @param newLocalExitRoot  New local exit root once the batch is processed
@@ -839,7 +784,6 @@ contract PolygonZkEVM is
      * @param proof fflonk proof
      */
     function _verifyAndRewardBatches(
-        uint64 pendingStateNum,
         uint64 initNumBatch,
         uint64 finalNewBatch,
         bytes32 newLocalExitRoot,
@@ -848,40 +792,6 @@ contract PolygonZkEVM is
     ) internal isSlotAdapterEmpty isCommitedProofHash(finalNewBatch) {
         bytes32 oldStateRoot;
         uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
-
-        // // Use pending state if specified, otherwise use consolidated state
-        // if (pendingStateNum != 0) {
-        //     // Check that pending state exist
-        //     // Already consolidated pending states can be used aswell
-        //     if (pendingStateNum > lastPendingState) {
-        //         revert PendingStateDoesNotExist();
-        //     }
-
-        //     // Check choosen pending state
-        //     PendingState storage currentPendingState = pendingStateTransitions[
-        //         pendingStateNum
-        //     ];
-
-        //     // Get oldStateRoot from pending batch
-        //     oldStateRoot = currentPendingState.stateRoot;
-
-        //     // Check initNumBatch matches the pending state
-        //     if (initNumBatch != currentPendingState.lastVerifiedBatch) {
-        //         revert InitNumBatchDoesNotMatchPendingState();
-        //     }
-        // } else {
-        //     // Use consolidated state
-        //     oldStateRoot = batchNumToStateRoot[initNumBatch];
-
-        //     if (oldStateRoot == bytes32(0)) {
-        //         revert OldStateRootDoesNotExist();
-        //     }
-
-        //     // Check initNumBatch is inside the range, sanity check
-        //     if (initNumBatch > currentLastVerifiedBatch) {
-        //         revert InitNumBatchAboveLastVerifiedBatch();
-        //     }
-        // }
 
         // Use consolidated state
         oldStateRoot = batchNumToStateRoot[initNumBatch];
@@ -929,87 +839,62 @@ contract PolygonZkEVM is
     }
 
     /**
-     * @notice Internal function to consolidate the state automatically once sequence or verify batches are called
-     * It tries to consolidate the first and the middle pending state in the queue
-     */
-    function _tryConsolidatePendingState() internal {
-        // Check if there's any state to consolidate
-        if (lastPendingState > lastPendingStateConsolidated) {
-            // Check if it's possible to consolidate the next pending state
-            uint64 nextPendingState = lastPendingStateConsolidated + 1;
-            if (isPendingStateConsolidable(nextPendingState)) {
-                // Check middle pending state ( binary search of 1 step)
-                uint64 middlePendingState = nextPendingState +
-                    (lastPendingState - nextPendingState) /
-                    2;
-
-                // Try to consolidate it, and if not, consolidate the nextPendingState
-                if (isPendingStateConsolidable(middlePendingState)) {
-                    _consolidatePendingState(middlePendingState);
-                } else {
-                    _consolidatePendingState(nextPendingState);
-                }
-            }
-        }
-    }
-
-    /**
      * @notice Allows to consolidate any pending state that has already exceed the pendingStateTimeout
      * Can be called by the trusted aggregator, which can consolidate any state without the timeout restrictions
      * @param pendingStateNum Pending state to consolidate
      */
-    function consolidatePendingState(uint64 pendingStateNum) external {
-        // Check if pending state can be consolidated
-        // If trusted aggregator is the sender, do not check the timeout or the emergency state
-        if (msg.sender != trustedAggregator) {
-            if (isEmergencyState) {
-                revert OnlyNotEmergencyState();
-            }
+    // function consolidatePendingState(uint64 pendingStateNum) external {
+    //     // Check if pending state can be consolidated
+    //     // If trusted aggregator is the sender, do not check the timeout or the emergency state
+    //     if (msg.sender != trustedAggregator) {
+    //         if (isEmergencyState) {
+    //             revert OnlyNotEmergencyState();
+    //         }
 
-            if (!isPendingStateConsolidable(pendingStateNum)) {
-                revert PendingStateNotConsolidable();
-            }
-        }
-        _consolidatePendingState(pendingStateNum);
-    }
+    //         if (!isPendingStateConsolidable(pendingStateNum)) {
+    //             revert PendingStateNotConsolidable();
+    //         }
+    //     }
+    //     _consolidatePendingState(pendingStateNum);
+    // }
 
     /**
      * @notice Internal function to consolidate any pending state that has already exceed the pendingStateTimeout
      * @param pendingStateNum Pending state to consolidate
      */
-    function _consolidatePendingState(uint64 pendingStateNum) internal {
-        // Check if pendingStateNum is in correct range
-        // - not consolidated (implicity checks that is not 0)
-        // - exist ( has been added)
-        if (
-            pendingStateNum <= lastPendingStateConsolidated ||
-            pendingStateNum > lastPendingState
-        ) {
-            revert PendingStateInvalid();
-        }
+    // function _consolidatePendingState(uint64 pendingStateNum) internal {
+    //     // Check if pendingStateNum is in correct range
+    //     // - not consolidated (implicity checks that is not 0)
+    //     // - exist ( has been added)
+    //     if (
+    //         pendingStateNum <= lastPendingStateConsolidated ||
+    //         pendingStateNum > lastPendingState
+    //     ) {
+    //         revert PendingStateInvalid();
+    //     }
 
-        PendingState storage currentPendingState = pendingStateTransitions[
-            pendingStateNum
-        ];
+    //     PendingState storage currentPendingState = pendingStateTransitions[
+    //         pendingStateNum
+    //     ];
 
-        // Update state
-        uint64 newLastVerifiedBatch = currentPendingState.lastVerifiedBatch;
-        lastVerifiedBatch = newLastVerifiedBatch;
-        batchNumToStateRoot[newLastVerifiedBatch] = currentPendingState
-            .stateRoot;
+    //     // Update state
+    //     uint64 newLastVerifiedBatch = currentPendingState.lastVerifiedBatch;
+    //     lastVerifiedBatch = newLastVerifiedBatch;
+    //     batchNumToStateRoot[newLastVerifiedBatch] = currentPendingState
+    //         .stateRoot;
 
-        // Update pending state
-        lastPendingStateConsolidated = pendingStateNum;
+    //     // Update pending state
+    //     lastPendingStateConsolidated = pendingStateNum;
 
-        // Interact with globalExitRootManager
-        globalExitRootManager.updateExitRoot(currentPendingState.exitRoot);
+    //     // Interact with globalExitRootManager
+    //     globalExitRootManager.updateExitRoot(currentPendingState.exitRoot);
 
-        emit ConsolidatePendingState(
-            newLastVerifiedBatch,
-            currentPendingState.stateRoot,
-            pendingStateNum
-        );
-    }
+    //     emit ConsolidatePendingState(
+    //         newLastVerifiedBatch,
+    //         currentPendingState.stateRoot,
+    //         pendingStateNum
+    //     );
+    // }
 
     ////////////////////////////
     // Force batches functions

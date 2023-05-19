@@ -9,7 +9,8 @@ import "../interfaces/IDeposit.sol";
 contract SlotAdapterMock is ISlotAdapter ,OwnableUpgradeable {
     address public zkEvmContract;
     error OnlyZkEvmContract();
-    function initialize() external virtual initializer {
+    
+    function initialize() public initializer {
 
         // Initialize OZ contracts
         __Ownable_init_unchained();

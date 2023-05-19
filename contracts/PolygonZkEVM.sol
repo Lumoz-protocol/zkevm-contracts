@@ -71,6 +71,12 @@ contract PolygonZkEVM is
         bool proof;
     }
 
+    struct ProofHashData {
+        bytes32 proofHash;
+        uint256 blockNumber;
+        bool proof;
+    }
+
     /**
      * @notice Struct to store the pending states
      * Pending state will be an intermediary state, that after a timeout can be consolidated, which means that will be added
@@ -221,7 +227,7 @@ contract PolygonZkEVM is
     mapping (uint64 => uint64) public finalNewBatchs;
 
     // finalNewBatch --> proofHash
-    mapping(uint64 => mapping(address => bytes32)) public proverCommitProofHash;
+    mapping(uint64 => mapping(address => ProofHashData)) public proverCommitProofHash;
     // mapping(uint64 => uint256) public commitBatchBlock;
     mapping(address => uint256) public proofNum;
 
@@ -497,14 +503,19 @@ contract PolygonZkEVM is
     }
 
     modifier isCommitProofHash(uint64 finalNewBatch) {
-        if (proverCommitProofHash[finalNewBatch][msg.sender] != bytes32(0)) {
+        ProofHashData memory proofHashData = proverCommitProofHash[finalNewBatch][msg.sender];
+        if (lastVerifiedBatch >= finalNewBatch || proofHashData.proof) {
+            revert CommittedProof();
+        }
+        if (proofHashData.proofHash != bytes32(0) && (proofHashData.blockNumber + _COMMIT_NUM * 2) > block.number) {
             revert CommittedProofHash();
         }
+
         _;
     }
 
     modifier isCommitedProofHash(uint64 finalNewBatch) {
-        if (proverCommitProofHash[finalNewBatch][msg.sender] == bytes32(0)) {
+        if (proverCommitProofHash[finalNewBatch][msg.sender].proofHash == bytes32(0)) {
             revert CommittedProofHash();
         }
         _;
@@ -697,14 +708,13 @@ contract PolygonZkEVM is
         if (sequencedBatches[finalNewBatch].accInputHash == bytes32(0)) {
             revert NewAccInputHashDoesNotExist();
         }
-        // finalNewBatchs => initNumBatch : finalNewBatch
-        // lastVerifiedBatch = finalNewBatch
         
         uint64  _finalNewBatch =  finalNewBatchs[lastVerifiedBatch];
         uint256 _finalNewBatchNumber = sequencedBatches[_finalNewBatch].blockNumber;
         if (_finalNewBatch != 0 && _finalNewBatchNumber > 0 && (block.number - _finalNewBatchNumber) > _COMMIT_NUM * 2) {
             if (!sequencedBatches[_finalNewBatch].proof) {
                 sequencedBatches[_finalNewBatch].blockNumber = 0;
+                
             }
         }
 
@@ -712,12 +722,18 @@ contract PolygonZkEVM is
         if (number > 0 && (block.number - number) > _COMMIT_NUM) {
             return;
         }
-        // store hash finalNewBatch -> msg.sender -> _proofHash
-        proverCommitProofHash[finalNewBatch][msg.sender] = _proofHash;
+   
         if (number == 0) {
             sequencedBatches[finalNewBatch].blockNumber = block.number;
             finalNewBatchs[initNumBatch] = finalNewBatch;
         }
+
+        // store hash finalNewBatch -> msg.sender -> ProofHashData
+        proverCommitProofHash[finalNewBatch][msg.sender] = ProofHashData(
+            _proofHash,
+            sequencedBatches[finalNewBatch].blockNumber,
+            false
+        );
 
         emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
     }
@@ -740,20 +756,10 @@ contract PolygonZkEVM is
         bytes32 newStateRoot,
         bytes calldata proof
     ) external ifNotEmergencyState {
-        // Check if the trusted aggregator timeout expired,
-        // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
-        // if (
-        //     sequencedBatches[finalNewBatch].sequencedTimestamp +
-        //         trustedAggregatorTimeout >
-        //     block.timestamp
-        // ) {
-        //     revert TrustedAggregatorTimeoutNotExpired();
-        // }
 
         if (finalNewBatch - initNumBatch > _MAX_VERIFY_BATCHES) {
             revert ExceedMaxVerifyBatches();
         }
-
         _verifyAndRewardBatches(
             pendingStateNum,
             initNumBatch,
@@ -763,85 +769,65 @@ contract PolygonZkEVM is
             proof
         );
 
-        // Update batch fees
-        // _updateBatchFee(finalNewBatch);
-
-        if (pendingStateTimeout == 0) {
-            // Consolidate state
-            sequencedBatches[finalNewBatch].proof = true;
-            lastVerifiedBatch = finalNewBatch;
-            batchNumToStateRoot[finalNewBatch] = newStateRoot;
-
-            // Clean pending state if any
-            if (lastPendingState > 0) {
-                lastPendingState = 0;
-                lastPendingStateConsolidated = 0;
-            }
-
-            // Interact with globalExitRootManager
-            globalExitRootManager.updateExitRoot(newLocalExitRoot);
-        } else {
-            // Consolidate pending state if possible
-            _tryConsolidatePendingState();
-
-            // Update pending state
-            lastPendingState++;
-            pendingStateTransitions[lastPendingState] = PendingState({
-                timestamp: uint64(block.timestamp),
-                lastVerifiedBatch: finalNewBatch,
-                exitRoot: newLocalExitRoot,
-                stateRoot: newStateRoot
-            });
-        }
-
-        emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
-    }
-
-    /**
-     * @notice Allows an aggregator to verify multiple batches
-     * @param pendingStateNum Init pending state, 0 if consolidated state is used
-     * @param initNumBatch Batch which the aggregator starts the verification
-     * @param finalNewBatch Last batch aggregator intends to verify
-     * @param newLocalExitRoot  New local exit root once the batch is processed
-     * @param newStateRoot New State root once the batch is processed
-     * @param proof fflonk proof
-     */
-    function verifyBatchesTrustedAggregator(
-        uint64 pendingStateNum,
-        uint64 initNumBatch,
-        uint64 finalNewBatch,
-        bytes32 newLocalExitRoot,
-        bytes32 newStateRoot,
-        bytes calldata proof
-    ) external onlyTrustedAggregator {
-        _verifyAndRewardBatches(
-            pendingStateNum,
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            newStateRoot,
-            proof
-        );
 
         // Consolidate state
+        sequencedBatches[finalNewBatch].proof = true;
         lastVerifiedBatch = finalNewBatch;
         batchNumToStateRoot[finalNewBatch] = newStateRoot;
-
-        // Clean pending state if any
-        if (lastPendingState > 0) {
-            lastPendingState = 0;
-            lastPendingStateConsolidated = 0;
-        }
+        proverCommitProofHash[finalNewBatch][msg.sender].proof = true;
 
         // Interact with globalExitRootManager
         globalExitRootManager.updateExitRoot(newLocalExitRoot);
 
-        emit VerifyBatchesTrustedAggregator(
-            finalNewBatch,
-            newStateRoot,
-            msg.sender
-        );
+   
+        emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
     }
+
+    // /**
+    //  * @notice Allows an aggregator to verify multiple batches
+    //  * @param pendingStateNum Init pending state, 0 if consolidated state is used
+    //  * @param initNumBatch Batch which the aggregator starts the verification
+    //  * @param finalNewBatch Last batch aggregator intends to verify
+    //  * @param newLocalExitRoot  New local exit root once the batch is processed
+    //  * @param newStateRoot New State root once the batch is processed
+    //  * @param proof fflonk proof
+    //  */
+    // function verifyBatchesTrustedAggregator(
+    //     uint64 pendingStateNum,
+    //     uint64 initNumBatch,
+    //     uint64 finalNewBatch,
+    //     bytes32 newLocalExitRoot,
+    //     bytes32 newStateRoot,
+    //     bytes calldata proof
+    // ) external onlyTrustedAggregator {
+    //     _verifyAndRewardBatches(
+    //         pendingStateNum,
+    //         initNumBatch,
+    //         finalNewBatch,
+    //         newLocalExitRoot,
+    //         newStateRoot,
+    //         proof
+    //     );
+
+    //     // Consolidate state
+    //     lastVerifiedBatch = finalNewBatch;
+    //     batchNumToStateRoot[finalNewBatch] = newStateRoot;
+
+    //     // Clean pending state if any
+    //     if (lastPendingState > 0) {
+    //         lastPendingState = 0;
+    //         lastPendingStateConsolidated = 0;
+    //     }
+
+    //     // Interact with globalExitRootManager
+    //     globalExitRootManager.updateExitRoot(newLocalExitRoot);
+
+    //     emit VerifyBatchesTrustedAggregator(
+    //         finalNewBatch,
+    //         newStateRoot,
+    //         msg.sender
+    //     );
+    // }
 
     /**
      * @notice Verify and reward batches internal function
@@ -863,43 +849,62 @@ contract PolygonZkEVM is
         bytes32 oldStateRoot;
         uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
 
-        // Use pending state if specified, otherwise use consolidated state
-        if (pendingStateNum != 0) {
-            // Check that pending state exist
-            // Already consolidated pending states can be used aswell
-            if (pendingStateNum > lastPendingState) {
-                revert PendingStateDoesNotExist();
-            }
+        // // Use pending state if specified, otherwise use consolidated state
+        // if (pendingStateNum != 0) {
+        //     // Check that pending state exist
+        //     // Already consolidated pending states can be used aswell
+        //     if (pendingStateNum > lastPendingState) {
+        //         revert PendingStateDoesNotExist();
+        //     }
 
-            // Check choosen pending state
-            PendingState storage currentPendingState = pendingStateTransitions[
-                pendingStateNum
-            ];
+        //     // Check choosen pending state
+        //     PendingState storage currentPendingState = pendingStateTransitions[
+        //         pendingStateNum
+        //     ];
 
-            // Get oldStateRoot from pending batch
-            oldStateRoot = currentPendingState.stateRoot;
+        //     // Get oldStateRoot from pending batch
+        //     oldStateRoot = currentPendingState.stateRoot;
 
-            // Check initNumBatch matches the pending state
-            if (initNumBatch != currentPendingState.lastVerifiedBatch) {
-                revert InitNumBatchDoesNotMatchPendingState();
-            }
-        } else {
-            // Use consolidated state
-            oldStateRoot = batchNumToStateRoot[initNumBatch];
+        //     // Check initNumBatch matches the pending state
+        //     if (initNumBatch != currentPendingState.lastVerifiedBatch) {
+        //         revert InitNumBatchDoesNotMatchPendingState();
+        //     }
+        // } else {
+        //     // Use consolidated state
+        //     oldStateRoot = batchNumToStateRoot[initNumBatch];
 
-            if (oldStateRoot == bytes32(0)) {
-                revert OldStateRootDoesNotExist();
-            }
+        //     if (oldStateRoot == bytes32(0)) {
+        //         revert OldStateRootDoesNotExist();
+        //     }
 
-            // Check initNumBatch is inside the range, sanity check
-            if (initNumBatch > currentLastVerifiedBatch) {
-                revert InitNumBatchAboveLastVerifiedBatch();
-            }
+        //     // Check initNumBatch is inside the range, sanity check
+        //     if (initNumBatch > currentLastVerifiedBatch) {
+        //         revert InitNumBatchAboveLastVerifiedBatch();
+        //     }
+        // }
+
+        // Use consolidated state
+        oldStateRoot = batchNumToStateRoot[initNumBatch];
+
+        if (oldStateRoot == bytes32(0)) {
+            revert OldStateRootDoesNotExist();
+        }
+
+        // Check initNumBatch is inside the range, sanity check
+        if (initNumBatch > currentLastVerifiedBatch) {
+            revert InitNumBatchAboveLastVerifiedBatch();
         }
 
         // Check final batch
         if (finalNewBatch <= currentLastVerifiedBatch) {
             revert FinalNumBatchBelowLastVerifiedBatch();
+        }
+
+        // check proof hash
+        bytes32 proofHash = keccak256(abi.encodePacked(proof, msg.sender));
+        if (proverCommitProofHash[finalNewBatch][msg.sender].proofHash != proofHash) {
+            slotAdapter.punish(msg.sender, ideDeposit);
+            revert InvalidProofHash(proofHash, proof, msg.sender);
         }
 
         // Get snark bytes
@@ -1005,99 +1010,6 @@ contract PolygonZkEVM is
             pendingStateNum
         );
     }
-
-    // /**
-    //  * @notice Function to update the batch fee based on the new verified batches
-    //  * The batch fee will not be updated when the trusted aggregator verifies batches
-    //  * @param newLastVerifiedBatch New last verified batch
-    //  */
-    // function _updateBatchFee(uint64 newLastVerifiedBatch) internal {
-    //     uint64 currentLastVerifiedBatch = getLastVerifiedBatch();
-    //     uint64 currentBatch = newLastVerifiedBatch;
-
-    //     uint256 totalBatchesAboveTarget;
-    //     uint256 newBatchesVerified = newLastVerifiedBatch -
-    //         currentLastVerifiedBatch;
-
-    //     uint256 targetTimestamp = block.timestamp - verifyBatchTimeTarget;
-
-    //     while (currentBatch != currentLastVerifiedBatch) {
-    //         // Load sequenced batchdata
-    //         SequencedBatchData
-    //             storage currentSequencedBatchData = sequencedBatches[
-    //                 currentBatch
-    //             ];
-
-    //         // Check if timestamp is below the verifyBatchTimeTarget
-    //         if (
-    //             targetTimestamp < currentSequencedBatchData.sequencedTimestamp
-    //         ) {
-    //             // update currentBatch
-    //             currentBatch = currentSequencedBatchData
-    //                 .previousLastBatchSequenced;
-    //         } else {
-    //             // The rest of batches will be above
-    //             totalBatchesAboveTarget =
-    //                 currentBatch -
-    //                 currentLastVerifiedBatch;
-    //             break;
-    //         }
-    //     }
-
-    //     uint256 totalBatchesBelowTarget = newBatchesVerified -
-    //         totalBatchesAboveTarget;
-
-    //     // _MAX_BATCH_FEE --> (< 70 bits)
-    //     // multiplierBatchFee --> (< 10 bits)
-    //     // _MAX_BATCH_MULTIPLIER = 12
-    //     // multiplierBatchFee ** _MAX_BATCH_MULTIPLIER --> (< 128 bits)
-    //     // batchFee * (multiplierBatchFee ** _MAX_BATCH_MULTIPLIER)-->
-    //     // (< 70 bits) * (< 128 bits) = < 256 bits
-
-    //     // Since all the following operations cannot overflow, we can optimize this operations with unchecked
-    //     unchecked {
-    //         if (totalBatchesBelowTarget < totalBatchesAboveTarget) {
-    //             // There are more batches above target, fee is multiplied
-    //             uint256 diffBatches = totalBatchesAboveTarget -
-    //                 totalBatchesBelowTarget;
-
-    //             diffBatches = diffBatches > _MAX_BATCH_MULTIPLIER
-    //                 ? _MAX_BATCH_MULTIPLIER
-    //                 : diffBatches;
-
-    //             // For every multiplierBatchFee multiplication we must shift 3 zeroes since we have 3 decimals
-    //             batchFee =
-    //                 (batchFee * (uint256(multiplierBatchFee) ** diffBatches)) /
-    //                 (uint256(1000) ** diffBatches);
-    //         } else {
-    //             // There are more batches below target, fee is divided
-    //             uint256 diffBatches = totalBatchesBelowTarget -
-    //                 totalBatchesAboveTarget;
-
-    //             diffBatches = diffBatches > _MAX_BATCH_MULTIPLIER
-    //                 ? _MAX_BATCH_MULTIPLIER
-    //                 : diffBatches;
-
-    //             // For every multiplierBatchFee multiplication we must shift 3 zeroes since we have 3 decimals
-    //             uint256 accDivisor = (uint256(1 ether) *
-    //                 (uint256(multiplierBatchFee) ** diffBatches)) /
-    //                 (uint256(1000) ** diffBatches);
-
-    //             // multiplyFactor = multiplierBatchFee ** diffBatches / 10 ** (diffBatches * 3)
-    //             // accDivisor = 1E18 * multiplyFactor
-    //             // 1E18 * batchFee / accDivisor = batchFee / multiplyFactor
-    //             // < 60 bits * < 70 bits / ~60 bits --> overflow not possible
-    //             batchFee = (uint256(1 ether) * batchFee) / accDivisor;
-    //         }
-    //     }
-
-    //     // Batch fee must remain inside a range
-    //     if (batchFee > _MAX_BATCH_FEE) {
-    //         batchFee = _MAX_BATCH_FEE;
-    //     } else if (batchFee < _MIN_BATCH_FEE) {
-    //         batchFee = _MIN_BATCH_FEE;
-    //     }
-    // }
 
     ////////////////////////////
     // Force batches functions

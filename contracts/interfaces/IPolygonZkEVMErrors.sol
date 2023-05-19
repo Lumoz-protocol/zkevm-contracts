@@ -213,6 +213,8 @@ interface IPolygonZkEVMErrors {
 
     error CommittedProofHash();
 
+    error CommittedProof();
+
     error CommittedTimeout();
 
     error InsufficientPledge();
@@ -222,4 +224,6 @@ interface IPolygonZkEVMErrors {
     error SubmitProofEarly();
 
     error ZeroAddress();
+
+    error InvalidProofHash(bytes32, bytes, address);
 }

@@ -68,6 +68,7 @@ contract PolygonZkEVM is
         uint64 sequencedTimestamp;
         uint64 previousLastBatchSequenced;
         uint256 blockNumber;
+        bool proof;
     }
 
     /**
@@ -215,14 +216,14 @@ contract PolygonZkEVM is
     // BatchNum --> state root
     mapping(uint64 => bytes32) public batchNumToStateRoot;
 
-        // blocknumber --> true
+    // blocknumber --> true
     mapping(uint => bool) public blockCommitBatchs;
+    mapping (uint64 => uint64) public finalNewBatchs;
 
     // finalNewBatch --> proofHash
     mapping(uint64 => mapping(address => bytes32)) public proverCommitProofHash;
     // mapping(uint64 => uint256) public commitBatchBlock;
     mapping(address => uint256) public proofNum;
-
 
     // Trusted sequencer URL
     string public trustedSequencerURL;
@@ -657,7 +658,8 @@ contract PolygonZkEVM is
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
             previousLastBatchSequenced: lastBatchSequenced,
-            blockNumber: 0
+            blockNumber: 0,
+            proof: false
         });
 
         // Store back the storage variables
@@ -687,7 +689,7 @@ contract PolygonZkEVM is
         if (ideDeposit.depositOf(msg.sender) < _MIN_DEPOSIT) {
             revert InsufficientPledge();
         }
-        
+    
         if (initNumBatch != 0 && sequencedBatches[initNumBatch].accInputHash == bytes32(0)) {
             revert OldAccInputHashDoesNotExist();
         }
@@ -695,15 +697,27 @@ contract PolygonZkEVM is
         if (sequencedBatches[finalNewBatch].accInputHash == bytes32(0)) {
             revert NewAccInputHashDoesNotExist();
         }
-
-        uint256 number = sequencedBatches[finalNewBatch].blockNumber;
-        if (number > 0 && (block.number - number) > _COMMIT_NUM) { // 有bug需要修改
-            revert CommittedTimeout();
+        // finalNewBatchs => initNumBatch : finalNewBatch
+        // lastVerifiedBatch = finalNewBatch
+        
+        uint64  _finalNewBatch =  finalNewBatchs[lastVerifiedBatch];
+        uint256 _finalNewBatchNumber = sequencedBatches[_finalNewBatch].blockNumber;
+        if (_finalNewBatch != 0 && _finalNewBatchNumber > 0 && (block.number - _finalNewBatchNumber) > _COMMIT_NUM * 2) {
+            if (!sequencedBatches[_finalNewBatch].proof) {
+                sequencedBatches[_finalNewBatch].blockNumber = 0;
+            }
         }
 
+        uint256 number = sequencedBatches[finalNewBatch].blockNumber;
+        if (number > 0 && (block.number - number) > _COMMIT_NUM) {
+            return;
+        }
         // store hash finalNewBatch -> msg.sender -> _proofHash
         proverCommitProofHash[finalNewBatch][msg.sender] = _proofHash;
-        sequencedBatches[finalNewBatch].blockNumber = block.number;
+        if (number == 0) {
+            sequencedBatches[finalNewBatch].blockNumber = block.number;
+            finalNewBatchs[initNumBatch] = finalNewBatch;
+        }
 
         emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
     }
@@ -754,6 +768,7 @@ contract PolygonZkEVM is
 
         if (pendingStateTimeout == 0) {
             // Consolidate state
+            sequencedBatches[finalNewBatch].proof = true;
             lastVerifiedBatch = finalNewBatch;
             batchNumToStateRoot[finalNewBatch] = newStateRoot;
 
@@ -1237,7 +1252,8 @@ contract PolygonZkEVM is
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
             previousLastBatchSequenced: lastBatchSequenced,
-            blockNumber: 0
+            blockNumber: 0,
+            proof: false
         });
         lastBatchSequenced = currentBatchSequenced;
         lastForceBatchSequenced = currentLastForceBatchSequenced;

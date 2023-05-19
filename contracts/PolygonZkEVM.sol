@@ -811,7 +811,7 @@ contract PolygonZkEVM is
         }
 
         // check proof hash
-        bytes32 proofHash = keccak256(abi.encodePacked(proof, msg.sender));
+        bytes32 proofHash = keccak256(abi.encodePacked(keccak256(proof), msg.sender));
         if (proverCommitProofHash[finalNewBatch][msg.sender].proofHash != proofHash) {
             slotAdapter.punish(msg.sender, ideDeposit);
             revert InvalidProofHash(proofHash, proof, msg.sender);

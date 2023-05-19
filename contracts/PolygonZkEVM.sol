@@ -772,7 +772,7 @@ contract PolygonZkEVM is
         globalExitRootManager.updateExitRoot(newLocalExitRoot);
 
    
-        emit VerifyBatches(finalNewBatch, newStateRoot, msg.sender);
+        emit VerifyBatchesTrustedAggregator(finalNewBatch, newStateRoot, msg.sender);
     }
 
     /**

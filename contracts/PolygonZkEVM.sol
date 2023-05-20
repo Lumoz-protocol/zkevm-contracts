@@ -696,7 +696,7 @@ contract PolygonZkEVM is
         if (ideDeposit.depositOf(msg.sender) < _MIN_DEPOSIT) {
             revert InsufficientPledge();
         }
-    
+
         if (initNumBatch != 0 && sequencedBatches[initNumBatch].accInputHash == bytes32(0)) {
             revert OldAccInputHashDoesNotExist();
         }
@@ -704,13 +704,13 @@ contract PolygonZkEVM is
         if (sequencedBatches[finalNewBatch].accInputHash == bytes32(0)) {
             revert NewAccInputHashDoesNotExist();
         }
-        
+
         uint64  _finalNewBatch =  finalNewBatchs[lastVerifiedBatch];
         uint256 _finalNewBatchNumber = sequencedBatches[_finalNewBatch].blockNumber;
         if (_finalNewBatch != 0 && _finalNewBatchNumber > 0 && (block.number - _finalNewBatchNumber) > _COMMIT_NUM * 2) {
             if (!sequencedBatches[_finalNewBatch].proof) {
                 sequencedBatches[_finalNewBatch].blockNumber = 0;
-                
+
             }
         }
 
@@ -718,7 +718,7 @@ contract PolygonZkEVM is
         if (number > 0 && (block.number - number) > _COMMIT_NUM) {
             return;
         }
-   
+
         if (number == 0) {
             sequencedBatches[finalNewBatch].blockNumber = block.number;
             finalNewBatchs[initNumBatch] = finalNewBatch;
@@ -771,7 +771,7 @@ contract PolygonZkEVM is
         // Interact with globalExitRootManager
         globalExitRootManager.updateExitRoot(newLocalExitRoot);
 
-   
+
         emit VerifyBatchesTrustedAggregator(finalNewBatch, newStateRoot, msg.sender);
     }
 
@@ -837,64 +837,6 @@ contract PolygonZkEVM is
         proofNum[msg.sender]++;
         slotAdapter.distributeRewards(msg.sender, initNumBatch, finalNewBatch, ideDeposit);
     }
-
-    /**
-     * @notice Allows to consolidate any pending state that has already exceed the pendingStateTimeout
-     * Can be called by the trusted aggregator, which can consolidate any state without the timeout restrictions
-     * @param pendingStateNum Pending state to consolidate
-     */
-    // function consolidatePendingState(uint64 pendingStateNum) external {
-    //     // Check if pending state can be consolidated
-    //     // If trusted aggregator is the sender, do not check the timeout or the emergency state
-    //     if (msg.sender != trustedAggregator) {
-    //         if (isEmergencyState) {
-    //             revert OnlyNotEmergencyState();
-    //         }
-
-    //         if (!isPendingStateConsolidable(pendingStateNum)) {
-    //             revert PendingStateNotConsolidable();
-    //         }
-    //     }
-    //     _consolidatePendingState(pendingStateNum);
-    // }
-
-    /**
-     * @notice Internal function to consolidate any pending state that has already exceed the pendingStateTimeout
-     * @param pendingStateNum Pending state to consolidate
-     */
-    // function _consolidatePendingState(uint64 pendingStateNum) internal {
-    //     // Check if pendingStateNum is in correct range
-    //     // - not consolidated (implicity checks that is not 0)
-    //     // - exist ( has been added)
-    //     if (
-    //         pendingStateNum <= lastPendingStateConsolidated ||
-    //         pendingStateNum > lastPendingState
-    //     ) {
-    //         revert PendingStateInvalid();
-    //     }
-
-    //     PendingState storage currentPendingState = pendingStateTransitions[
-    //         pendingStateNum
-    //     ];
-
-    //     // Update state
-    //     uint64 newLastVerifiedBatch = currentPendingState.lastVerifiedBatch;
-    //     lastVerifiedBatch = newLastVerifiedBatch;
-    //     batchNumToStateRoot[newLastVerifiedBatch] = currentPendingState
-    //         .stateRoot;
-
-    //     // Update pending state
-    //     lastPendingStateConsolidated = pendingStateNum;
-
-    //     // Interact with globalExitRootManager
-    //     globalExitRootManager.updateExitRoot(currentPendingState.exitRoot);
-
-    //     emit ConsolidatePendingState(
-    //         newLastVerifiedBatch,
-    //         currentPendingState.stateRoot,
-    //         pendingStateNum
-    //     );
-    // }
 
     ////////////////////////////
     // Force batches functions
@@ -1243,192 +1185,6 @@ contract PolygonZkEVM is
     /////////////////////////////////
     // Soundness protection functions
     /////////////////////////////////
-
-    /**
-     * @notice Allows the trusted aggregator to override the pending state
-     * if it's possible to prove a different state root given the same batches
-     * @param initPendingStateNum Init pending state, 0 if consolidated state is used
-     * @param finalPendingStateNum Final pending state, that will be used to compare with the newStateRoot
-     * @param initNumBatch Batch which the aggregator starts the verification
-     * @param finalNewBatch Last batch aggregator intends to verify
-     * @param newLocalExitRoot  New local exit root once the batch is processed
-     * @param newStateRoot New State root once the batch is processed
-     * @param proof fflonk proof
-     */
-    function overridePendingState(
-        uint64 initPendingStateNum,
-        uint64 finalPendingStateNum,
-        uint64 initNumBatch,
-        uint64 finalNewBatch,
-        bytes32 newLocalExitRoot,
-        bytes32 newStateRoot,
-        bytes calldata proof
-    ) external onlyTrustedAggregator {
-        _proveDistinctPendingState(
-            initPendingStateNum,
-            finalPendingStateNum,
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            newStateRoot,
-            proof
-        );
-
-        // Consolidate state state
-        lastVerifiedBatch = finalNewBatch;
-        batchNumToStateRoot[finalNewBatch] = newStateRoot;
-
-        // Clean pending state if any
-        if (lastPendingState > 0) {
-            lastPendingState = 0;
-            lastPendingStateConsolidated = 0;
-        }
-
-        // Interact with globalExitRootManager
-        globalExitRootManager.updateExitRoot(newLocalExitRoot);
-
-        // Update trusted aggregator timeout to max
-        trustedAggregatorTimeout = _HALT_AGGREGATION_TIMEOUT;
-
-        emit OverridePendingState(finalNewBatch, newStateRoot, msg.sender);
-    }
-
-    /**
-     * @notice Allows to halt the PolygonZkEVM if its possible to prove a different state root given the same batches
-     * @param initPendingStateNum Init pending state, 0 if consolidated state is used
-     * @param finalPendingStateNum Final pending state, that will be used to compare with the newStateRoot
-     * @param initNumBatch Batch which the aggregator starts the verification
-     * @param finalNewBatch Last batch aggregator intends to verify
-     * @param newLocalExitRoot  New local exit root once the batch is processed
-     * @param newStateRoot New State root once the batch is processed
-     * @param proof fflonk proof
-     */
-    function proveNonDeterministicPendingState(
-        uint64 initPendingStateNum,
-        uint64 finalPendingStateNum,
-        uint64 initNumBatch,
-        uint64 finalNewBatch,
-        bytes32 newLocalExitRoot,
-        bytes32 newStateRoot,
-        bytes calldata proof
-    ) external ifNotEmergencyState {
-        _proveDistinctPendingState(
-            initPendingStateNum,
-            finalPendingStateNum,
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            newStateRoot,
-            proof
-        );
-
-        emit ProveNonDeterministicPendingState(
-            batchNumToStateRoot[finalNewBatch],
-            newStateRoot
-        );
-
-        // Activate emergency state
-        _activateEmergencyState();
-    }
-
-    /**
-     * @notice Internal function that proves a different state root given the same batches to verify
-     * @param initPendingStateNum Init pending state, 0 if consolidated state is used
-     * @param finalPendingStateNum Final pending state, that will be used to compare with the newStateRoot
-     * @param initNumBatch Batch which the aggregator starts the verification
-     * @param finalNewBatch Last batch aggregator intends to verify
-     * @param newLocalExitRoot  New local exit root once the batch is processed
-     * @param newStateRoot New State root once the batch is processed
-     * @param proof fflonk proof
-     */
-    function _proveDistinctPendingState(
-        uint64 initPendingStateNum,
-        uint64 finalPendingStateNum,
-        uint64 initNumBatch,
-        uint64 finalNewBatch,
-        bytes32 newLocalExitRoot,
-        bytes32 newStateRoot,
-        bytes calldata proof
-    ) internal view {
-        bytes32 oldStateRoot;
-
-        // Use pending state if specified, otherwise use consolidated state
-        if (initPendingStateNum != 0) {
-            // Check that pending state exist
-            // Already consolidated pending states can be used aswell
-            if (initPendingStateNum > lastPendingState) {
-                revert PendingStateDoesNotExist();
-            }
-
-            // Check choosen pending state
-            PendingState storage initPendingState = pendingStateTransitions[
-                initPendingStateNum
-            ];
-
-            // Get oldStateRoot from init pending state
-            oldStateRoot = initPendingState.stateRoot;
-
-            // Check initNumBatch matches the init pending state
-            if (initNumBatch != initPendingState.lastVerifiedBatch) {
-                revert InitNumBatchDoesNotMatchPendingState();
-            }
-        } else {
-            // Use consolidated state
-            oldStateRoot = batchNumToStateRoot[initNumBatch];
-            if (oldStateRoot == bytes32(0)) {
-                revert OldStateRootDoesNotExist();
-            }
-
-            // Check initNumBatch is inside the range, sanity check
-            if (initNumBatch > lastVerifiedBatch) {
-                revert InitNumBatchAboveLastVerifiedBatch();
-            }
-        }
-
-        // Assert final pending state num is in correct range
-        // - exist ( has been added)
-        // - bigger than the initPendingstate
-        // - not consolidated
-        if (
-            finalPendingStateNum > lastPendingState ||
-            finalPendingStateNum <= initPendingStateNum ||
-            finalPendingStateNum <= lastPendingStateConsolidated
-        ) {
-            revert FinalPendingStateNumInvalid();
-        }
-
-        // Check final num batch
-        if (
-            finalNewBatch !=
-            pendingStateTransitions[finalPendingStateNum].lastVerifiedBatch
-        ) {
-            revert FinalNumBatchDoesNotMatchPendingState();
-        }
-
-        // Get snark bytes
-        bytes memory snarkHashBytes = getInputSnarkBytes(
-            initNumBatch,
-            finalNewBatch,
-            newLocalExitRoot,
-            oldStateRoot,
-            newStateRoot
-        );
-
-        // Calulate the snark input
-        uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
-
-        // Verify proof
-        if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
-            revert InvalidProof();
-        }
-
-        if (
-            pendingStateTransitions[finalPendingStateNum].stateRoot ==
-            newStateRoot
-        ) {
-            revert StoredRootMustBeDifferentThanNewRoot();
-        }
-    }
 
     /**
      * @notice Function to activate emergency state, which also enables the emergency mode on both PolygonZkEVM and PolygonZkEVMBridge contracts

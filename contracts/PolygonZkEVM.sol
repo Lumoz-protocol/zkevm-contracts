@@ -806,9 +806,9 @@ contract PolygonZkEVM is
         }
 
         // Check final batch
-        if (finalNewBatch <= currentLastVerifiedBatch) {
-            revert FinalNumBatchBelowLastVerifiedBatch();
-        }
+        // if (finalNewBatch <= currentLastVerifiedBatch) {
+        //     revert FinalNumBatchBelowLastVerifiedBatch();
+        // }
 
         // check proof hash
         bytes32 proofHash = keccak256(abi.encodePacked(keccak256(proof), msg.sender));

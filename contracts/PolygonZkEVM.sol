@@ -1270,18 +1270,6 @@ contract PolygonZkEVM is
     }
 
     /**
-     * @notice Returns a boolean that indicates if the pendingStateNum is or not consolidable
-     * Note that his function does not check if the pending state currently exists, or if it's consolidated already
-     */
-    function isPendingStateConsolidable(
-        uint64 pendingStateNum
-    ) public view returns (bool) {
-        return (pendingStateTransitions[pendingStateNum].timestamp +
-            pendingStateTimeout <=
-            block.timestamp);
-    }
-
-    /**
      * @notice Function to calculate the input snark bytes
      * @param initNumBatch Batch which the aggregator starts the verification
      * @param finalNewBatch Last batch aggregator intends to verify

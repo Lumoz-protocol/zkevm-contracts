@@ -68,6 +68,7 @@ contract PolygonZkEVM is
         uint64 sequencedTimestamp;
         uint64 previousLastBatchSequenced;
         uint256 blockNumber;
+        uint256 commitProofStartNumber;
         bool proof;
     }
 
@@ -223,8 +224,8 @@ contract PolygonZkEVM is
     mapping(uint64 => bytes32) public batchNumToStateRoot;
 
     // blocknumber --> true
-    mapping(uint => bool) public blockCommitBatchs;
-    mapping (uint64 => uint64) public finalNewBatchs;
+    mapping(uint => bool) public blockCommitBatches;
+    mapping (uint64 => uint64) public finalNewBatches;
 
     // finalNewBatch --> proofHash
     mapping(uint64 => mapping(address => ProofHashData)) public proverCommitProofHash;
@@ -551,7 +552,7 @@ contract PolygonZkEVM is
         BatchData[] calldata batches,
         address l2Coinbase
     ) external ifNotEmergencyState onlyTrustedSequencer {
-        if (blockCommitBatchs[block.number]) {
+        if (blockCommitBatches[block.number]) {
             revert CommittedBatches();
         }
 
@@ -564,12 +565,15 @@ contract PolygonZkEVM is
             revert ExceedMaxVerifyBatches();
         }
 
+
         // Store storage variables in memory, to save gas, because will be overrided multiple times
         uint64 currentTimestamp = lastTimestamp;
         uint64 currentBatchSequenced = lastBatchSequenced;
         uint64 currentLastForceBatchSequenced = lastForceBatchSequenced;
-        bytes32 currentAccInputHash = sequencedBatches[currentBatchSequenced]
-            .accInputHash;
+        SequencedBatchData memory sequencedBatchData = sequencedBatches[currentBatchSequenced];
+        bytes32 currentAccInputHash = sequencedBatchData.accInputHash;
+        // bytes32 currentAccInputHash = sequencedBatches[currentBatchSequenced]
+        //     .accInputHash;
 
         // Store in a temporal variable, for avoid access again the storage slot
         uint64 initLastForceBatchSequenced = currentLastForceBatchSequenced;
@@ -667,6 +671,7 @@ contract PolygonZkEVM is
             sequencedTimestamp: uint64(block.timestamp),
             previousLastBatchSequenced: lastBatchSequenced,
             blockNumber: 0,
+            commitProofStartNumber: 0,
             proof: false
         });
 
@@ -681,7 +686,7 @@ contract PolygonZkEVM is
         // Update global exit root if there are new deposits
         bridgeAddress.updateGlobalExitRoot();
 
-        blockCommitBatchs[block.number] = true;
+        blockCommitBatches[block.number] = true;
         // calc slot reward
         slotAdapter.calcSlotRewatd(currentBatchSequenced, ideDeposit);
 
@@ -702,7 +707,7 @@ contract PolygonZkEVM is
             revert NewAccInputHashDoesNotExist();
         }
 
-        uint64  _finalNewBatch =  finalNewBatchs[lastVerifiedBatch];
+        uint64  _finalNewBatch =  finalNewBatches[lastVerifiedBatch];
         uint256 _finalNewBatchNumber = sequencedBatches[_finalNewBatch].blockNumber;
         if (_finalNewBatch != 0 && _finalNewBatchNumber > 0 && (block.number - _finalNewBatchNumber) > _COMMIT_NUM * 2) {
             if (!sequencedBatches[_finalNewBatch].proof) {
@@ -718,7 +723,8 @@ contract PolygonZkEVM is
 
         if (number == 0) {
             sequencedBatches[finalNewBatch].blockNumber = block.number;
-            finalNewBatchs[initNumBatch] = finalNewBatch;
+            sequencedBatches[finalNewBatch].commitProofStartNumber = block.number + 20;
+            finalNewBatches[initNumBatch] = finalNewBatch;
         }
 
         // store hash finalNewBatch -> msg.sender -> ProofHashData
@@ -879,7 +885,7 @@ contract PolygonZkEVM is
             )
         );
 
-        // blockCommitBatchs[block.number] = true;
+        // blockCommitBatches[block.number] = true;
         // // calc slot reward
         // slotAdapter.calcSlotRewatd(currentBatchSequenced);
 
@@ -989,6 +995,7 @@ contract PolygonZkEVM is
             sequencedTimestamp: uint64(block.timestamp),
             previousLastBatchSequenced: lastBatchSequenced,
             blockNumber: 0,
+            commitProofStartNumber: 0,
             proof: false
         });
         lastBatchSequenced = currentBatchSequenced;

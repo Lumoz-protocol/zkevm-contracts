@@ -661,9 +661,6 @@ contract PolygonZkEVM is
             revert ForceBatchesOverflow();
         }
 
-        uint256 nonForcedBatchesSequenced = batchesNum -
-            (currentLastForceBatchSequenced - initLastForceBatchSequenced);
-
         // Update sequencedBatches mapping
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
             accInputHash: currentAccInputHash,
@@ -686,7 +683,7 @@ contract PolygonZkEVM is
 
         blockCommitBatchs[block.number] = true;
         // calc slot reward
-        slotAdapter.calcSlotRewatd(currentBatchSequenced);
+        slotAdapter.calcSlotRewatd(currentBatchSequenced, ideDeposit);
 
         emit SequenceBatches(currentBatchSequenced);
     }

@@ -9,7 +9,7 @@ import "../interfaces/IDeposit.sol";
 contract SlotAdapterMock is ISlotAdapter ,OwnableUpgradeable {
     address public zkEvmContract;
     error OnlyZkEvmContract();
-    
+
     function initialize() public initializer {
 
         // Initialize OZ contracts
@@ -30,7 +30,7 @@ contract SlotAdapterMock is ISlotAdapter ,OwnableUpgradeable {
     function distributeRewards(address _recipient, uint64 _initNumBatch, uint64 _finalNewBatch, IDeposit _iDeposit) external onlyZkEvmContract {
 
     }
-    function calcSlotRewatd(uint64 _batchNum) external onlyZkEvmContract {
+    function calcSlotRewatd(uint64 _batchNum, IDeposit _iDeposit) external onlyZkEvmContract {
 
     }
     function punish(address _recipient, IDeposit _iDeposit) external onlyZkEvmContract {

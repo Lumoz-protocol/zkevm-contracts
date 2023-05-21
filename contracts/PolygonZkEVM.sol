@@ -707,7 +707,7 @@ IPolygonZkEVMErrors
 
         blockCommitBatches[block.number] = true;
         // calc slot reward
-        slotAdapter.calcSlotRewatd(currentBatchSequenced, ideDeposit);
+        slotAdapter.calcSlotReward(currentBatchSequenced, ideDeposit);
 
         emit SequenceBatches(currentBatchSequenced);
     }
@@ -848,7 +848,7 @@ IPolygonZkEVMErrors
             newStateRoot
         );
 
-        // Calulate the snark input
+        // Calculate the snark input
         uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
         // Verify proof
         if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
@@ -907,7 +907,7 @@ IPolygonZkEVMErrors
 
         // blockCommitBatches[block.number] = true;
         // // calc slot reward
-        // slotAdapter.calcSlotRewatd(currentBatchSequenced);
+        // slotAdapter.calcSlotReward(currentBatchSequenced);
 
         if (msg.sender == tx.origin) {
             // Getting the calldata from an EOA is easy so no need to put the `transactions` in the event

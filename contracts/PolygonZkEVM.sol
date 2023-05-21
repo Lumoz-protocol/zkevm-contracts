@@ -20,9 +20,9 @@ import "./interfaces/IDeposit.sol";
  * To enter and exit of the L2 network will be used a PolygonZkEVMBridge smart contract that will be deployed in both networks.
  */
 contract PolygonZkEVM is
-    OwnableUpgradeable,
-    EmergencyManager,
-    IPolygonZkEVMErrors
+OwnableUpgradeable,
+EmergencyManager,
+IPolygonZkEVMErrors
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -110,6 +110,26 @@ contract PolygonZkEVM is
         address trustedAggregator;
         uint64 trustedAggregatorTimeout;
     }
+
+
+    struct ProverLiquidationInfo {
+        address prover;
+        bool isSubmittedProofHash;
+        uint256 submitHashBlockNumber;
+        bool isSubmittedProof;
+        uint256 submitProofBlockNumber;
+        bool isLiquidated;
+    }
+
+
+    //prover penalty number * 1000IDE = penaltyIDEnumber
+    mapping(address => uint256)  public proverPenaltyNum;
+    // An mapping records the record of miners submitting proofhash and proof
+    mapping(address => ProverLiquidationInfo[])    public proverLiquidation;
+    //The array position of the prover's final liquidation
+    mapping(address => uint256) public  proverLastLiquidated;
+
+    mapping(bytes32 => uint256)public  proverPosition;
 
     // Modulus zkSNARK
     uint256 internal constant _RFIELD =
@@ -733,6 +753,7 @@ contract PolygonZkEVM is
             sequencedBatches[finalNewBatch].blockNumber,
             false
         );
+        updateProofHashLiquidation(_proofHash);
 
         emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
     }
@@ -774,7 +795,8 @@ contract PolygonZkEVM is
         // Interact with globalExitRootManager
         globalExitRootManager.updateExitRoot(newLocalExitRoot);
 
-
+        bytes32 proofHash = keccak256(abi.encodePacked(keccak256(proof), msg.sender));
+        updateProofLiquidation(proofHash,proof);
         emit VerifyBatchesTrustedAggregator(finalNewBatch, newStateRoot, msg.sender);
     }
 
@@ -1343,4 +1365,72 @@ contract PolygonZkEVM is
             return false;
         }
     }
+
+
+    function updateProofHashLiquidation( bytes32 _proofHash) internal {
+        uint256 position = proverPosition[_proofHash];
+        ProverLiquidationInfo[] storage ProverLiquidations = proverLiquidation[msg.sender];
+        ProverLiquidationInfo storage proverLiquidationInfo = ProverLiquidations[position];
+        if (proverLiquidationInfo.isSubmittedProofHash){
+            proverLiquidationInfo.submitHashBlockNumber = block.number;
+            proverLiquidationInfo.submitProofPlockNumber = block.number;
+        }else{
+            ProverLiquidations.push(ProverLiquidationInfo({
+                prover: msg.sender,
+                isSubmittedProofHash: true,
+                submitHashBlockNumber: block.number,
+                isSubmittedProof: false,
+                submitProofBlockNumber: block.number,
+                isLiquidated: false
+            }));
+            proverPosition[_proofHash] = ProverLiquidations.length - 1;
+        }
+        updateLiquidation();
+    }
+
+    function updateProofLiquidation(bytes32 _proofHash, bytes calldata proof) internal {
+
+        uint256 position = proverPosition[_proofHash];
+        ProverLiquidationInfo[] storage ProverLiquidations = proverLiquidation[msg.sender];
+        ProverLiquidationInfo storage proverLiquidationInfo = ProverLiquidations[position];
+        proverLiquidationInfo.submitProofBlockNumber = block.number;
+        proverLiquidationInfo.isSubmittedProof = true;
+        updateLiquidation();
+
+    }
+
+    function updateLiquidation() public {
+        uint256 proverLastLiquidatedPosition = proverLastLiquidated[msg.sender];
+        ProverLiquidationInfo[] storage ProverLiquidations = proverLiquidation[msg.sender];
+        for (uint256 i = proverLastLiquidatedPosition; i < ProverLiquidations.length; i++) {
+            ProverLiquidationInfo storage proverLiquidationInfo = ProverLiquidations[i];
+            if (!proverLiquidationInfo.isLiquidated) {
+
+                if (proverLiquidationInfo.isSubmittedProof) {
+                    if (proverLiquidationInfo.submitProofBlockNumber - proverLiquidationInfo.submitHashBlockNumber > 20) {
+                        proverLiquidationInfo.isLiquidated = true;
+                        proverPenaltyNum[msg.sender]++;
+                        proverLastLiquidated[msg.sender]++;
+                    }
+                } else {
+                    if (block.number - proverliquidationInfo.submitHashBlockNumber > 20) {
+                        ProverLiquidationInfo.isLiquidated = true;
+                        proverPenaltyNum[msg.sender]++;
+                        proverLastLiquidated[msg.sender]++;
+                    }
+                }
+
+            } else {
+                proverLastLiquidated[msg.sender]++;
+            }
+
+        }
+    }
+
+    function is_AllLiquidated() view returns(bool) {
+        ProverLiquidationInfo[] storage proverLiquidations = proverLiquidation[msg.sender];
+        return proverLiquidations[proverLiquidations.length-1].isLiquidated;
+    }
+
+
 }

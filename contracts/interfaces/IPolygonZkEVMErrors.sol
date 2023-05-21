@@ -226,4 +226,6 @@ interface IPolygonZkEVMErrors {
     error ZeroAddress();
 
     error InvalidProofHash(bytes32, bytes, address);
+
+    error OnlyDeposit();
 }

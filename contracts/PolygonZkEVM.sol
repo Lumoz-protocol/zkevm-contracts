@@ -68,7 +68,6 @@ IPolygonZkEVMErrors
         uint64 sequencedTimestamp;
         uint64 previousLastBatchSequenced;
         uint256 blockNumber;
-        uint256 commitProofStartNumber;
         bool proof;
     }
 
@@ -119,6 +118,7 @@ IPolygonZkEVMErrors
         bool isSubmittedProof;
         uint256 submitProofBlockNumber;
         bool isLiquidated;
+        uint64 finalNewBatch;
     }
 
 
@@ -502,13 +502,6 @@ IPolygonZkEVMErrors
         _;
     }
 
-    modifier onlyTrustedAggregator() {
-        if (trustedAggregator != msg.sender) {
-            revert OnlyTrustedAggregator();
-        }
-        _;
-    }
-
     modifier isForceBatchAllowed() {
         if (isForcedBatchDisallowed) {
             revert ForceBatchNotAllowed();
@@ -555,6 +548,13 @@ IPolygonZkEVMErrors
     modifier isZeroAddress(address account) {
         if ( account == address(0) ) {
             revert ZeroAddress();
+        }
+        _;
+    }
+
+    modifier onlyDeposit() {
+        if (address(ideDeposit) != msg.sender) {
+            revert OnlyDeposit();
         }
         _;
     }
@@ -691,7 +691,6 @@ IPolygonZkEVMErrors
             sequencedTimestamp: uint64(block.timestamp),
             previousLastBatchSequenced: lastBatchSequenced,
             blockNumber: 0,
-            commitProofStartNumber: 0,
             proof: false
         });
 
@@ -743,7 +742,6 @@ IPolygonZkEVMErrors
 
         if (number == 0) {
             sequencedBatches[finalNewBatch].blockNumber = block.number;
-            sequencedBatches[finalNewBatch].commitProofStartNumber = block.number + 20;
             finalNewBatches[initNumBatch] = finalNewBatch;
         }
 
@@ -753,7 +751,8 @@ IPolygonZkEVMErrors
             sequencedBatches[finalNewBatch].blockNumber,
             false
         );
-        updateProofHashLiquidation(_proofHash);
+
+        updateProofHashLiquidation(_proofHash, finalNewBatch);
 
         emit SubmitProofHash(msg.sender, initNumBatch, finalNewBatch, _proofHash);
     }
@@ -795,8 +794,6 @@ IPolygonZkEVMErrors
         // Interact with globalExitRootManager
         globalExitRootManager.updateExitRoot(newLocalExitRoot);
 
-        bytes32 proofHash = keccak256(abi.encodePacked(keccak256(proof), msg.sender));
-        updateProofLiquidation(proofHash,proof);
         emit VerifyBatchesTrustedAggregator(finalNewBatch, newStateRoot, msg.sender);
     }
 
@@ -861,6 +858,7 @@ IPolygonZkEVMErrors
 
         proofNum[msg.sender]++;
         slotAdapter.distributeRewards(msg.sender, initNumBatch, finalNewBatch, ideDeposit);
+        updateProofLiquidation(proofHash, proof);
     }
 
     ////////////////////////////
@@ -1017,7 +1015,6 @@ IPolygonZkEVMErrors
             sequencedTimestamp: uint64(block.timestamp),
             previousLastBatchSequenced: lastBatchSequenced,
             blockNumber: 0,
-            commitProofStartNumber: 0,
             proof: false
         });
         lastBatchSequenced = currentBatchSequenced;
@@ -1355,25 +1352,38 @@ IPolygonZkEVMErrors
     }
 
 
-    function updateProofHashLiquidation( bytes32 _proofHash) internal {
-        uint256 position = proverPosition[_proofHash];
-        ProverLiquidationInfo[] storage ProverLiquidations = proverLiquidation[msg.sender];
-        ProverLiquidationInfo storage proverLiquidationInfo = ProverLiquidations[position];
-        if (proverLiquidationInfo.isSubmittedProofHash){
-            proverLiquidationInfo.submitHashBlockNumber = block.number;
-            proverLiquidationInfo.submitProofPlockNumber = block.number;
-        }else{
-            ProverLiquidations.push(ProverLiquidationInfo({
-                prover: msg.sender,
-                isSubmittedProofHash: true,
-                submitHashBlockNumber: block.number,
-                isSubmittedProof: false,
-                submitProofBlockNumber: block.number,
-                isLiquidated: false
-            }));
-            proverPosition[_proofHash] = ProverLiquidations.length - 1;
-        }
-        updateLiquidation();
+    function updateProofHashLiquidation( bytes32 _proofHash, uint64 finalNewBatch) internal {
+        // uint256 position = proverPosition[_proofHash];
+        ProverLiquidationInfo[] storage proverLiquidations = proverLiquidation[msg.sender];
+        proverLiquidations.push(ProverLiquidationInfo({
+            prover: msg.sender,
+            isSubmittedProofHash: true,
+            submitHashBlockNumber: block.number,
+            isSubmittedProof: false,
+            submitProofBlockNumber: block.number,
+            isLiquidated: false,
+            finalNewBatch: finalNewBatch
+        }));
+        proverPosition[_proofHash] = proverLiquidations.length - 1;
+
+        // ProverLiquidationInfo storage proverLiquidationInfo = proverLiquidations[position];
+
+        // if (proverLiquidationInfo.isSubmittedProofHash) {
+        //     proverLiquidationInfo.submitHashBlockNumber = block.number;
+        //     proverLiquidationInfo.submitProofBlockNumber = block.number;
+        // } else {
+        //     proverLiquidations.push(ProverLiquidationInfo({
+        //         prover: msg.sender,
+        //         isSubmittedProofHash: true,
+        //         submitHashBlockNumber: block.number,
+        //         isSubmittedProof: false,
+        //         submitProofBlockNumber: block.number,
+        //         isLiquidated: false
+        //     }));
+        //     proverPosition[_proofHash] = proverLiquidations.length - 1;
+        //     proverLiquidation[msg.sender] = proverLiquidations;
+        // }
+        updateLiquidation(msg.sender);
     }
 
     function updateProofLiquidation(bytes32 _proofHash, bytes calldata proof) internal {
@@ -1383,42 +1393,43 @@ IPolygonZkEVMErrors
         ProverLiquidationInfo storage proverLiquidationInfo = ProverLiquidations[position];
         proverLiquidationInfo.submitProofBlockNumber = block.number;
         proverLiquidationInfo.isSubmittedProof = true;
-        updateLiquidation();
-
+        updateLiquidation(msg.sender);
     }
 
-    function updateLiquidation() public {
-        uint256 proverLastLiquidatedPosition = proverLastLiquidated[msg.sender];
-        ProverLiquidationInfo[] storage ProverLiquidations = proverLiquidation[msg.sender];
-        for (uint256 i = proverLastLiquidatedPosition; i < ProverLiquidations.length; i++) {
-            ProverLiquidationInfo storage proverLiquidationInfo = ProverLiquidations[i];
+    function updateLiquidation(address _account) internal {
+        uint256 proverLastLiquidatedPosition = proverLastLiquidated[_account];
+        ProverLiquidationInfo[] storage proverLiquidations = proverLiquidation[_account];
+        for (uint256 i = proverLastLiquidatedPosition; i < proverLiquidations.length; i++) {
+            ProverLiquidationInfo storage proverLiquidationInfo = proverLiquidations[i];
             if (!proverLiquidationInfo.isLiquidated) {
-
                 if (proverLiquidationInfo.isSubmittedProof) {
-                    if (proverLiquidationInfo.submitProofBlockNumber - proverLiquidationInfo.submitHashBlockNumber > 20) {
-                        proverLiquidationInfo.isLiquidated = true;
-                        proverPenaltyNum[msg.sender]++;
-                        proverLastLiquidated[msg.sender]++;
+                    if (!sequencedBatches[proverLiquidationInfo.finalNewBatch].proof) {
+                        if (proverLiquidationInfo.submitProofBlockNumber - proverLiquidationInfo.submitHashBlockNumber > 20) {
+                            proverLiquidationInfo.isLiquidated = true;
+                            proverLastLiquidated[_account]++;
+                            slotAdapter.punish(_account, ideDeposit);
+                        }
                     }
                 } else {
-                    if (block.number - proverliquidationInfo.submitHashBlockNumber > 20) {
-                        ProverLiquidationInfo.isLiquidated = true;
-                        proverPenaltyNum[msg.sender]++;
-                        proverLastLiquidated[msg.sender]++;
+                    if (block.number - proverLiquidationInfo.submitHashBlockNumber > (_COMMIT_NUM * 2)) {
+                        proverLiquidationInfo.isLiquidated = true;
+                        proverPenaltyNum[_account]++;
+                        proverLastLiquidated[_account]++;
+                        slotAdapter.punish(_account, ideDeposit);
                     }
                 }
 
-            } else {
-                proverLastLiquidated[msg.sender]++;
             }
-
         }
     }
 
-    function is_AllLiquidated() view returns(bool) {
+    function is_AllLiquidated() external view  returns(bool) {
         ProverLiquidationInfo[] storage proverLiquidations = proverLiquidation[msg.sender];
         return proverLiquidations[proverLiquidations.length-1].isLiquidated;
     }
 
+    function settle(address _account) external onlyDeposit {
+        updateLiquidation(_account);
+    }
 
 }

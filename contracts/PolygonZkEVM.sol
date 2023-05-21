@@ -1419,6 +1419,8 @@ IPolygonZkEVMErrors
                     }
                 }
 
+            } else {
+                proverLastLiquidated[_account]++;
             }
         }
     }

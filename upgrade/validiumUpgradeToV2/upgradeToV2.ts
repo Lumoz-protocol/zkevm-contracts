@@ -157,15 +157,15 @@ async function main() {
     // });
 
     console.log("#######################\n");
-    console.log(`PolygonValidiumBridge impl: ${newBridgeImpl}`);
+    console.log(`PolygonValidiumBridge impl: ${newBridgeImpl.target}`);
 
     console.log("you can verify the new impl address with:");
-    console.log(`npx hardhat verify ${newBridgeImpl} --network ${process.env.HARDHAT_NETWORK}`);
+    console.log(`npx hardhat verify ${newBridgeImpl.target} --network ${process.env.HARDHAT_NETWORK}`);
 
     const operationBridge = genOperation(
         proxyAdmin.target,
         0, // value
-        proxyAdmin.interface.encodeFunctionData("upgrade", [currentBridgeAddress, newBridgeImpl]),
+        proxyAdmin.interface.encodeFunctionData("upgrade", [currentBridgeAddress, newBridgeImpl.target]),
         ethers.ZeroHash, // predecesoor
         salt // salt
     );
@@ -186,11 +186,11 @@ async function main() {
 
 
     console.log("#######################\n");
-    console.log(`polygonGlobalExitRootV2 impl: ${newGlobalExitRoortImpl}`);
+    console.log(`polygonGlobalExitRootV2 impl: ${newGlobalExitRoortImpl.target}`);
 
     console.log("you can verify the new impl address with:");
     console.log(
-        `npx hardhat verify --constructor-args upgrade/arguments.js ${newGlobalExitRoortImpl} --network ${process.env.HARDHAT_NETWORK}\n`
+        `npx hardhat verify --constructor-args upgrade/arguments.js ${newGlobalExitRoortImpl.target} --network ${process.env.HARDHAT_NETWORK}\n`
     );
     console.log("Copy the following constructor arguments on: upgrade/arguments.js \n", [
         currentPolygonValidiumAddress,
@@ -200,7 +200,7 @@ async function main() {
     const operationGlobalExitRoot = genOperation(
         proxyAdmin.target,
         0, // value
-        proxyAdmin.interface.encodeFunctionData("upgrade", [currentGlobalExitRootAddress, newGlobalExitRoortImpl]),
+        proxyAdmin.interface.encodeFunctionData("upgrade", [currentGlobalExitRootAddress, newGlobalExitRoortImpl.target]),
         ethers.ZeroHash, // predecesoor
         salt // salt
     );
@@ -261,11 +261,11 @@ async function main() {
     // });
 
     console.log("#######################\n");
-    console.log(`Polygon rollup manager: ${implRollupManager}`);
+    console.log(`Polygon rollup manager: ${implRollupManager.target}`);
 
     console.log("you can verify the new impl address with:");
     console.log(
-        `npx hardhat verify --constructor-args upgrade/arguments.js ${implRollupManager} --network ${process.env.HARDHAT_NETWORK}\n`
+        `npx hardhat verify --constructor-args upgrade/arguments.js ${implRollupManager.target} --network ${process.env.HARDHAT_NETWORK}\n`
     );
     console.log("Copy the following constructor arguments on: upgrade/arguments.js \n", [
         currentGlobalExitRootAddress,
@@ -278,7 +278,7 @@ async function main() {
         0, // value
         proxyAdmin.interface.encodeFunctionData("upgradeAndCall", [
             currentPolygonValidiumAddress,
-            implRollupManager,
+            implRollupManager.target,
             PolygonRollupManagerFactory.interface.encodeFunctionData("initialize", [
                 trustedAggregator,
                 pendingStateTimeout,

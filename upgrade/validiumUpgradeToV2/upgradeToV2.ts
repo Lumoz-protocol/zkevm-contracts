@@ -208,7 +208,7 @@ async function main() {
     // Update current system to rollup manager
 
     // deploy polygon zkEVM impl
-    const PolygonValidiumV2ExistentFactory = await ethers.getContractFactory("PolygonValidiumExistentEtrog");
+    const PolygonValidiumV2ExistentFactory = await ethers.getContractFactory("PolygonValidiumExistentEtrog", deployer);
     const polygonValidiumEtrogImpl = await PolygonValidiumV2ExistentFactory.deploy(
         currentGlobalExitRootAddress,
         polTokenAddress,
@@ -232,7 +232,7 @@ async function main() {
     ]);
 
     // deploy polygon zkEVM proxy
-    const PolygonTransparentProxy = await ethers.getContractFactory("PolygonTransparentProxy");
+    const PolygonTransparentProxy = await ethers.getContractFactory("PolygonTransparentProxy", deployer);
     const newPolygonValidiumContract = await PolygonTransparentProxy.deploy(
         polygonValidiumEtrogImpl.target,
         currentPolygonValidiumAddress,
@@ -253,7 +253,7 @@ async function main() {
     ]);
 
     // Upgrade to rollup manager previous polygonZKEVM
-    const PolygonRollupManagerFactory = await ethers.getContractFactory("PolygonRollupManager");
+    const PolygonRollupManagerFactory = await ethers.getContractFactory("PolygonRollupManager", deployer);
     const implRollupManager = await PolygonRollupManagerFactory.deploy(currentGlobalExitRootAddress, polTokenAddress, currentBridgeAddress);
     // const implRollupManager = await upgrades.prepareUpgrade(currentPolygonValidiumAddress, PolygonRollupManagerFactory, {
     //     constructorArgs: [currentGlobalExitRootAddress, polTokenAddress, currentBridgeAddress],

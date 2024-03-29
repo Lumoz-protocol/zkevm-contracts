@@ -16,7 +16,7 @@ import "./lib/GlobalExitRootLib.sol";
  * PolygonZkEVMBridge that will be deployed on both networks Ethereum and Polygon zkEVM
  * Contract responsible to manage the token interactions with other networks
  */
-contract PolygonZkEVMBridge is
+contract ZKFairZkEVMBridge is
 DepositContract,
 EmergencyManager,
 IZKFairZkEVMBridge

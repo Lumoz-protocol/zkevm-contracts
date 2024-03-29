@@ -149,7 +149,7 @@ async function main() {
     // prapare upgrades
 
     // Prepare Upgrade PolygonValidiumBridge
-    const polygonValidiumBridgeFactory = await ethers.getContractFactory("PolygonValidiumBridgeV2", deployer);
+    const polygonValidiumBridgeFactory = await ethers.getContractFactory("ZKFairZkEVMBridge", deployer);
 
     const newBridgeImpl = await upgrades.prepareUpgrade(currentBridgeAddress, polygonValidiumBridgeFactory, {
         unsafeAllow: ["constructor"],

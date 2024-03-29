@@ -150,10 +150,11 @@ async function main() {
 
     // Prepare Upgrade PolygonValidiumBridge
     const polygonValidiumBridgeFactory = await ethers.getContractFactory("ZKFairZkEVMBridge", deployer);
+    const newBridgeImpl = await polygonValidiumBridgeFactory.deploy();
 
-    const newBridgeImpl = await upgrades.prepareUpgrade(currentBridgeAddress, polygonValidiumBridgeFactory, {
-        unsafeAllow: ["constructor"],
-    });
+    // const newBridgeImpl = await upgrades.prepareUpgrade(currentBridgeAddress, polygonValidiumBridgeFactory, {
+    //     unsafeAllow: ["constructor"],
+    // });
 
     console.log("#######################\n");
     console.log(`PolygonValidiumBridge impl: ${newBridgeImpl}`);
@@ -172,15 +173,17 @@ async function main() {
     // prepare upgrade global exit root
     // Prepare Upgrade  PolygonValidiumGlobalExitRootV2
     const polygonGlobalExitRootV2 = await ethers.getContractFactory("PolygonValidiumGlobalExitRootV2", deployer);
+    const newGlobalExitRoortImpl = await polygonGlobalExitRootV2.deploy(currentPolygonValidiumAddress, currentBridgeAddress);
 
-    const newGlobalExitRoortImpl = await upgrades.prepareUpgrade(
-        currentGlobalExitRootAddress,
-        polygonGlobalExitRootV2,
-        {
-            constructorArgs: [currentPolygonValidiumAddress, currentBridgeAddress],
-            unsafeAllow: ["constructor", "state-variable-immutable"],
-        }
-    );
+    // const newGlobalExitRoortImpl = await upgrades.prepareUpgrade(
+    //     currentGlobalExitRootAddress,
+    //     polygonGlobalExitRootV2,
+    //     {
+    //         constructorArgs: [currentPolygonValidiumAddress, currentBridgeAddress],
+    //         unsafeAllow: ["constructor", "state-variable-immutable"],
+    //     }
+    // );
+
 
     console.log("#######################\n");
     console.log(`polygonGlobalExitRootV2 impl: ${newGlobalExitRoortImpl}`);
@@ -251,10 +254,11 @@ async function main() {
 
     // Upgrade to rollup manager previous polygonZKEVM
     const PolygonRollupManagerFactory = await ethers.getContractFactory("PolygonRollupManager");
-    const implRollupManager = await upgrades.prepareUpgrade(currentPolygonValidiumAddress, PolygonRollupManagerFactory, {
-        constructorArgs: [currentGlobalExitRootAddress, polTokenAddress, currentBridgeAddress],
-        unsafeAllow: ["constructor", "state-variable-immutable"],
-    });
+    const implRollupManager = await PolygonRollupManagerFactory.deploy(currentGlobalExitRootAddress, polTokenAddress, currentBridgeAddress);
+    // const implRollupManager = await upgrades.prepareUpgrade(currentPolygonValidiumAddress, PolygonRollupManagerFactory, {
+    //     constructorArgs: [currentGlobalExitRootAddress, polTokenAddress, currentBridgeAddress],
+    //     unsafeAllow: ["constructor", "state-variable-immutable"],
+    // });
 
     console.log("#######################\n");
     console.log(`Polygon rollup manager: ${implRollupManager}`);

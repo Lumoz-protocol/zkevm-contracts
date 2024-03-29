@@ -171,8 +171,8 @@ async function main() {
     );
 
     // prepare upgrade global exit root
-    // Prepare Upgrade  PolygonValidiumGlobalExitRootV2
-    const polygonGlobalExitRootV2 = await ethers.getContractFactory("PolygonValidiumGlobalExitRootV2", deployer);
+    // Prepare Upgrade  PolygonZkEVMGlobalExitRootV2
+    const polygonGlobalExitRootV2 = await ethers.getContractFactory("PolygonZkEVMGlobalExitRootV2", deployer);
     const newGlobalExitRoortImpl = await polygonGlobalExitRootV2.deploy(currentPolygonValidiumAddress, currentBridgeAddress);
 
     // const newGlobalExitRoortImpl = await upgrades.prepareUpgrade(

@@ -43,6 +43,7 @@ async function main() {
         "polygonValidiumGlobalExitRootAddress",
         "polygonValidiumAddress",
         "timelockContractAddress",
+        "cdkDataCommitteeContract",
     ];
 
     for (const parameterName of mandatoryOutputParameters) {
@@ -55,6 +56,7 @@ async function main() {
     const currentGlobalExitRootAddress = deployOutputParameters.polygonValidiumGlobalExitRootAddress;
     const currentPolygonValidiumAddress = deployOutputParameters.polygonValidiumAddress;
     const currentTimelockAddress = deployOutputParameters.timelockContractAddress;
+    const currentCDKDataCommitteeAddress = deployOutputParameters.cdkDataCommitteeContract;
 
     // Load onchain parameters
     const polygonValidiumFactory = await ethers.getContractFactory("CDKValidium");
@@ -128,10 +130,6 @@ async function main() {
     const proxyAdminFactory = await ethers.getContractFactory("@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol:ProxyAdmin", deployer);
     const proxyAdmin  = proxyAdminFactory.attach(proxyAdminAddress) as ProxyAdmin;;
     console.log('proxyAdminAddress', proxyAdminAddress)
-    //const proxyAdmin = await upgrades.admin.getInstance();
-
-    // Assert correct admin
-    //expect(await upgrades.erc1967.getAdminAddress(currentPolygonValidiumAddress as string)).to.be.equal(proxyAdmin.target);
 
     // deploy new verifier
     let verifierContract;
@@ -152,13 +150,27 @@ async function main() {
 
     // prapare upgrades
 
+    // Prepare Upgrade PolygonDataCommittee
+    const polygonDataCommitteeFactory = await ethers.getContractFactory("PolygonDataCommittee", deployer);
+    const newDAImpl = await polygonDataCommitteeFactory.deploy();
+    console.log("#######################\n");
+    console.log(`PolygonDataCommittee impl: ${newDAImpl.target}`);
+
+    console.log("you can verify the new impl address with:");
+    console.log(`npx hardhat verify ${newDAImpl.target} --network ${process.env.HARDHAT_NETWORK}`);
+
+    const operationDA = genOperation(
+        proxyAdmin.target,
+        0, // value
+        proxyAdmin.interface.encodeFunctionData("upgrade", [currentCDKDataCommitteeAddress, newDAImpl.target]),
+        ethers.ZeroHash, // predecesoor
+        salt // salt
+    );
+    
+
     // Prepare Upgrade PolygonValidiumBridge
     const polygonValidiumBridgeFactory = await ethers.getContractFactory("ZKFairZkEVMBridgeV2", deployer);
     const newBridgeImpl = await polygonValidiumBridgeFactory.deploy();
-
-    // const newBridgeImpl = await upgrades.prepareUpgrade(currentBridgeAddress, polygonValidiumBridgeFactory, {
-    //     unsafeAllow: ["constructor"],
-    // });
 
     console.log("#######################\n");
     console.log(`PolygonValidiumBridge impl: ${newBridgeImpl.target}`);
@@ -178,16 +190,6 @@ async function main() {
     // Prepare Upgrade  PolygonZkEVMGlobalExitRootV2
     const polygonGlobalExitRootV2 = await ethers.getContractFactory("PolygonZkEVMGlobalExitRootV2", deployer);
     const newGlobalExitRoortImpl = await polygonGlobalExitRootV2.deploy(currentPolygonValidiumAddress, currentBridgeAddress);
-
-    // const newGlobalExitRoortImpl = await upgrades.prepareUpgrade(
-    //     currentGlobalExitRootAddress,
-    //     polygonGlobalExitRootV2,
-    //     {
-    //         constructorArgs: [currentPolygonValidiumAddress, currentBridgeAddress],
-    //         unsafeAllow: ["constructor", "state-variable-immutable"],
-    //     }
-    // );
-
 
     console.log("#######################\n");
     console.log(`polygonGlobalExitRootV2 impl: ${newGlobalExitRoortImpl.target}`);
@@ -302,9 +304,9 @@ async function main() {
 
     // Schedule operation
     const scheduleData = timelockContractFactory.interface.encodeFunctionData("scheduleBatch", [
-        [operationGlobalExitRoot.target, operationBridge.target, operationRollupManager.target],
-        [operationGlobalExitRoot.value, operationBridge.value, operationRollupManager.value],
-        [operationGlobalExitRoot.data, operationBridge.data, operationRollupManager.data],
+        [operationGlobalExitRoot.target, operationBridge.target, operationRollupManager.target, operationDA.target],
+        [operationGlobalExitRoot.value, operationBridge.value, operationRollupManager.value, operationDA.value],
+        [operationGlobalExitRoot.data, operationBridge.data, operationRollupManager.data, operationDA.data],
         ethers.ZeroHash, // predecesoor
         salt, // salt
         timelockDelay,

@@ -8,11 +8,12 @@ import * as dotenv from "dotenv";
 dotenv.config({path: path.resolve(__dirname, "../../.env")});
 import {ethers, upgrades} from "hardhat";
 import {CDKValidium} from "../../typechain-types";
+import {ProxyAdmin} from "../../typechain-types";
 
-const pathOutputJson = path.join(__dirname, "./upgrade_output.json");
+const pathOutputJson = path.join(__dirname, "./upgrade_outputL1.json");
 
-const deployParameters = require("./deploy_parameters.json");
-const deployOutputParameters = require("./deploy_output.json");
+const deployParameters = require("./deploy_parameters_l1.json");
+const deployOutputParameters = require("./deploy_output_l1.json");
 const upgradeParameters = require("./upgrade_parameters.json");
 
 async function main() {
@@ -123,10 +124,14 @@ async function main() {
 
     console.log("deploying with: ", deployer.address);
 
-    const proxyAdmin = await upgrades.admin.getInstance();
+    const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(currentPolygonValidiumAddress as string);
+    const proxyAdminFactory = await ethers.getContractFactory("@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol:ProxyAdmin", deployer);
+    const proxyAdmin  = proxyAdminFactory.attach(proxyAdminAddress) as ProxyAdmin;;
+    console.log('proxyAdminAddress', proxyAdminAddress)
+    //const proxyAdmin = await upgrades.admin.getInstance();
 
     // Assert correct admin
-    expect(await upgrades.erc1967.getAdminAddress(currentPolygonValidiumAddress as string)).to.be.equal(proxyAdmin.target);
+    //expect(await upgrades.erc1967.getAdminAddress(currentPolygonValidiumAddress as string)).to.be.equal(proxyAdmin.target);
 
     // deploy new verifier
     let verifierContract;
@@ -142,14 +147,13 @@ async function main() {
     console.log("#######################\n");
     console.log("Verifier deployed to:", verifierContract.target);
     console.log(`npx hardhat verify ${verifierContract.target} --network ${process.env.HARDHAT_NETWORK}`);
-
     // load timelock
     const timelockContractFactory = await ethers.getContractFactory("CDKValidiumTimelock", deployer);
 
     // prapare upgrades
 
     // Prepare Upgrade PolygonValidiumBridge
-    const polygonValidiumBridgeFactory = await ethers.getContractFactory("ZKFairZkEVMBridge", deployer);
+    const polygonValidiumBridgeFactory = await ethers.getContractFactory("ZKFairZkEVMBridgeV2", deployer);
     const newBridgeImpl = await polygonValidiumBridgeFactory.deploy();
 
     // const newBridgeImpl = await upgrades.prepareUpgrade(currentBridgeAddress, polygonValidiumBridgeFactory, {

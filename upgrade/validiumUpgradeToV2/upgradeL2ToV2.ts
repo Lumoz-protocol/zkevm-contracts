@@ -7,11 +7,12 @@ import fs = require("fs");
 import * as dotenv from "dotenv";
 dotenv.config({path: path.resolve(__dirname, "../../.env")});
 import {ethers, upgrades} from "hardhat";
-import {PolygonZkEVMTimelock} from "../../typechain-types";
+import {CDKValidiumTimelock} from "../../typechain-types";
+import {ProxyAdmin} from "../../typechain-types";
 
 const pathOutputJson = path.join(__dirname, "./upgrade_outputL2.json");
-const deployParameters = require("./deploy_parameters.json");
-const deployOutputParameters = require("./deploy_output.json");
+const deployParameters = require("./deploy_parameters_l2.json");
+const deployOutputParameters = require("./deploy_output_l2.json");
 const upgradeParameters = require("./upgrade_parameters.json");
 
 async function main() {
@@ -69,27 +70,33 @@ async function main() {
     console.log("deploying with: ", deployer.address);
 
     // Prepare Upgrade PolygonZkEVMBridge
-    const PreviousBridgeFactory = (await ethers.getContractFactory("PolygonZkEVMBridge")) as any;
+    const PreviousBridgeFactory = (await ethers.getContractFactory("ZKFairZkEVMBridge")) as any;
 
     // Import OZ upgrades
     await upgrades.forceImport(currentBridgeAddress as string, PreviousBridgeFactory, "transparent" as any);
-    const proxyAdmin = await upgrades.admin.getInstance();
+    // const proxyAdmin = await upgrades.admin.getInstance();
 
-    // Assert correct admin
-    expect(await upgrades.erc1967.getAdminAddress(currentBridgeAddress as string)).to.be.equal(proxyAdmin.target);
+    // // Assert correct admin
+    // expect(await upgrades.erc1967.getAdminAddress(currentBridgeAddress as string)).to.be.equal(proxyAdmin.target);
+
+    const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(currentBridgeAddress as string);
+    const proxyAdminFactory = await ethers.getContractFactory("@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol:ProxyAdmin", deployer);
+    const proxyAdmin  = proxyAdminFactory.attach(proxyAdminAddress) as ProxyAdmin;;
+    console.log('proxyAdminAddress', proxyAdminAddress)
+
 
     // Check current timelock address and delay
     const timelockL2Address = await proxyAdmin.owner();
 
     // load timelock
-    const timelockContractFactory = await ethers.getContractFactory("PolygonZkEVMTimelock");
-    const timelockContract = (await timelockContractFactory.attach(timelockL2Address)) as PolygonZkEVMTimelock;
+    const timelockContractFactory = await ethers.getContractFactory("CDKValidiumTimelock");
+    const timelockContract = (await timelockContractFactory.attach(timelockL2Address)) as CDKValidiumTimelock;
     const timelockDelay = await timelockContract.getMinDelay();
 
     console.log("timelockAddress: ", timelockContract.target, {timelockDelay});
 
     // prapare upgrades
-    const polygonZkEVMBridgeFactory = await ethers.getContractFactory("PolygonZkEVMBridgeV2", deployer);
+    const polygonZkEVMBridgeFactory = await ethers.getContractFactory("ZKFairZkEVMBridgeV2", deployer);
 
     const newBridgeImpl = await upgrades.prepareUpgrade(currentBridgeAddress, polygonZkEVMBridgeFactory, {
         unsafeAllow: ["constructor"],
